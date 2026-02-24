@@ -11,16 +11,6 @@ Instead of Claude Code trying to do everything in one session and losing context
 
 ## Quick start
 
-### Install
-
-```bash
-# Install globally (recommended)
-npm install -g cc-workspace
-
-# Or run directly with npx (no install)
-npx cc-workspace
-```
-
 ### Prerequisites
 
 - **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** v2.1.47+
@@ -33,7 +23,7 @@ npx cc-workspace
 # Navigate to the parent directory containing your repos
 cd ~/projects/my-workspace
 
-# Initialize the orchestrator
+# Initialize the orchestrator (no install needed)
 npx cc-workspace init . "My Project"
 ```
 
