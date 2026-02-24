@@ -362,6 +362,19 @@ Both `init` and `update` are safe to re-run:
 
 ---
 
+## Changelog v4.0 -> v4.0.5
+
+| # | Fix | Detail |
+|---|-----|--------|
+| 1 | **Agent frontmatter fix** | `allowed-tools` → `tools` on all 3 agents. `allowed-tools` is the skill field — agents use `tools`. Without this fix, tool restrictions were silently ignored. |
+| 2 | **Removed `effort` field** | `effort: high/medium/low` doesn't exist in Claude Code spec. Removed from all agents. |
+| 3 | **Skill `agent` field** | Added `agent: Explore` or `agent: general-purpose` to 6 skills for proper subagent routing. |
+| 4 | **`Task(type)` restrictions** | team-lead restricted to `Task(implementer, Explore)`, workspace-init to `Task(Explore)`. |
+| 5 | **`update` fixes local files** | `npx cc-workspace update` now also updates local orchestrator/ files (hooks, settings.json, CLAUDE.md, templates, _TEMPLATE.md). Previously only updated globals. |
+| 6 | **Failure handling** | Added failure handling section to spawn-templates: max 2 re-dispatches, escalation criteria. |
+
+---
+
 ## Changelog v3.5.0 -> v4.0
 
 | # | Feature | Detail |
