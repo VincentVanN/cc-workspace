@@ -199,7 +199,9 @@ function installGlobals(force) {
 // Claude Code hook format: { matcher: { tools: [...] }, hooks: [{ type: "command", command: "...", timeout: N }] }
 // For hooks without tool matcher: { hooks: [{ type: "command", command: "...", timeout: N }] }
 function generateSettings(orchDir) {
-  const hp = ".claude/hooks";
+  // Use $CLAUDE_PROJECT_DIR so hooks resolve correctly even when
+  // subagents run from a different CWD (e.g. worktree in sibling repo)
+  const hp = '${CLAUDE_PROJECT_DIR:-.}/.claude/hooks';
 
   function hook(command, timeout) {
     return { type: "command", command: `bash ${hp}/${command}`, timeout };
