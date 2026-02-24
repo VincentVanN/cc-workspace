@@ -1,0 +1,36 @@
+{
+  "name": "cc-workspace",
+  "version": "4.1.0",
+  "description": "Claude Code multi-workspace orchestrator — skills, hooks, agents, and templates for multi-service projects",
+  "bin": {
+    "cc-workspace": "./bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "global-skills/",
+    "LICENSE",
+    "README.md"
+  ],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "orchestrator",
+    "agent-teams",
+    "multi-repo",
+    "workspace",
+    "monorepo"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VincentVanN/cc-workspace.git"
+  },
+  "homepage": "https://github.com/VincentVanN/cc-workspace#readme",
+  "bugs": {
+    "url": "https://github.com/VincentVanN/cc-workspace/issues"
+  },
+  "author": "VincentVanN",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}
