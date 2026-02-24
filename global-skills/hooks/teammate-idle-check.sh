@@ -20,7 +20,7 @@ if [ -d "$PROJECT_DIR/plans" ]; then
 
     if [ -n "$PENDING" ]; then
         PLAN_NAMES=$(echo "$PENDING" | xargs -I{} basename {} | tr '\n' ', ' | sed 's/,$//')
-        echo "[Warning] Unassigned tasks remain in: $PLAN_NAMES. Consider claiming the next pending task."
+        echo "[Warning] Unassigned tasks remain in: $PLAN_NAMES. Consider claiming the next pending task." >&2
         exit 0
     fi
 fi
