@@ -340,6 +340,15 @@ Both `init` and `update` are safe to re-run:
 
 ---
 
+## Changelog v4.1.0 -> v4.1.2
+
+| # | Fix | Detail |
+|---|-----|--------|
+| 1 | **Hook paths use `$CLAUDE_PROJECT_DIR`** | All 11 hooks in settings.json now resolve via `${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/` instead of relative `.claude/hooks/`. Fixes `WorktreeCreate hook failed: No such file or directory` when subagents run from a different CWD (worktree in sibling repo). |
+| 2 | **stdout/stderr fix on 3 hooks** | `worktree-create-context.sh`: stdout was interpreted as worktree path — moved to stderr. `task-completed-check.sh` and `teammate-idle-check.sh`: stdout ignored by Claude Code for these events — moved to stderr. |
+
+---
+
 ## Changelog v4.0.5 -> v4.1.0
 
 | # | Feature | Detail |
