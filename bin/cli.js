@@ -246,9 +246,6 @@ function generateSettings(orchDir) {
       TaskCompleted: [
         withoutMatcher("task-completed-check.sh", 3)
       ],
-      WorktreeCreate: [
-        withoutMatcher("worktree-create-context.sh", 3)
-      ],
       Notification: [
         withoutMatcher("notify-user.sh", 5)
       ]

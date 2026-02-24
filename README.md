@@ -27,7 +27,7 @@ cd ~/projects/my-workspace
 npx cc-workspace init . "My Project"
 ```
 
-This creates an `orchestrator/` directory and installs 9 skills, 3 agents, 11 hooks, and 3 rules into `~/.claude/`.
+This creates an `orchestrator/` directory and installs 9 skills, 3 agents, 10 hooks, and 3 rules into `~/.claude/`.
 
 ### Configure (one time)
 
@@ -200,7 +200,7 @@ next one starts. The plan on disk is the source of truth.
 
 ---
 
-## The 11 hooks
+## The 10 hooks
 
 All hooks are **non-blocking** (exit 0 + warning). No hook blocks the session.
 
@@ -215,7 +215,6 @@ All hooks are **non-blocking** (exit 0 + warning). No hook blocks the session.
 | **track-file-modifications** | `PostToolUse` (async) | Log of modified files |
 | **teammate-idle-check** | `TeammateIdle` | Warning if remaining tasks |
 | **task-completed-check** | `TaskCompleted` | Warning if tests failed |
-| **worktree-create-context** | `WorktreeCreate` | Reminder to read repo CLAUDE.md |
 | **notify-user** | `Notification` | Desktop notification |
 
 ---
@@ -340,12 +339,13 @@ Both `init` and `update` are safe to re-run:
 
 ---
 
-## Changelog v4.1.0 -> v4.1.2
+## Changelog v4.1.0 -> v4.1.3
 
 | # | Fix | Detail |
 |---|-----|--------|
-| 1 | **Hook paths use `$CLAUDE_PROJECT_DIR`** | All 11 hooks in settings.json now resolve via `${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/` instead of relative `.claude/hooks/`. Fixes `WorktreeCreate hook failed: No such file or directory` when subagents run from a different CWD (worktree in sibling repo). |
-| 2 | **stdout/stderr fix on 3 hooks** | `worktree-create-context.sh`: stdout was interpreted as worktree path — moved to stderr. `task-completed-check.sh` and `teammate-idle-check.sh`: stdout ignored by Claude Code for these events — moved to stderr. |
+| 1 | **Hook paths use `$CLAUDE_PROJECT_DIR`** | All 10 hooks in settings.json now resolve via `${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/` instead of relative `.claude/hooks/`. Fixes hook failures when subagents run from a different CWD (worktree in sibling repo). |
+| 2 | **stdout/stderr fix** | `task-completed-check.sh` and `teammate-idle-check.sh`: stdout ignored by Claude Code for these events — moved to stderr. |
+| 3 | **Removed `WorktreeCreate` hook** | `worktree-create-context.sh` caused worktree creation to fail — stdout was interpreted as the worktree path, creating ghost directories. Removed entirely (10 hooks instead of 11). |
 
 ---
 
