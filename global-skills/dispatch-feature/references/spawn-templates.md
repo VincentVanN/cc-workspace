@@ -15,16 +15,24 @@ You are teammate-[service]. Read the CLAUDE.md in your repo first.
 You are working in a temporary worktree. If you don't commit, YOUR WORK WILL BE LOST
 when the worktree is cleaned up.
 
-1. FIRST THING: check out the session branch:
+CRITICAL: Do NOT run `git checkout` in the main repo. Do NOT use `git -C ../repo checkout`.
+You are already in an isolated worktree — all git commands run HERE, not in the main repo.
+
+1. FIRST THING: Switch to the session branch inside your worktree:
    git checkout session/{session-name}
+   (This is safe — you are in a worktree, not the main repo)
 2. Verify you are on the right branch:
    git branch --show-current  (must show: session/{session-name})
-3. Commit AFTER EACH logical unit — do NOT wait until the end
-4. Before reporting back, verify ALL changes are committed:
+3. If checkout fails with "did not match any file(s)":
+   git fetch origin session/{session-name}
+   git checkout session/{session-name}
+4. Commit AFTER EACH logical unit — do NOT wait until the end
+5. Before reporting back, verify ALL changes are committed:
    git status  (must show: nothing to commit, working tree clean)
-5. If git status shows uncommitted changes when you're done: COMMIT THEM NOW
+6. If git status shows uncommitted changes when you're done: COMMIT THEM NOW
 
 Branch `session/{session-name}` ALREADY EXISTS. Do NOT create other branches.
+Do NOT create branches named worktree-agent-* — use the session branch.
 
 ## Constitution (non-negotiable)
 [paste all rules from your workspace's constitution.md]
@@ -70,16 +78,24 @@ You are teammate-[service]. Read the CLAUDE.md in your repo first.
 You are working in a temporary worktree. If you don't commit, YOUR WORK WILL BE LOST
 when the worktree is cleaned up.
 
-1. FIRST THING: check out the session branch:
+CRITICAL: Do NOT run `git checkout` in the main repo. Do NOT use `git -C ../repo checkout`.
+You are already in an isolated worktree — all git commands run HERE, not in the main repo.
+
+1. FIRST THING: Switch to the session branch inside your worktree:
    git checkout session/{session-name}
+   (This is safe — you are in a worktree, not the main repo)
 2. Verify you are on the right branch:
    git branch --show-current  (must show: session/{session-name})
-3. Commit AFTER EACH logical unit — do NOT wait until the end
-4. Before reporting back, verify ALL changes are committed:
+3. If checkout fails with "did not match any file(s)":
+   git fetch origin session/{session-name}
+   git checkout session/{session-name}
+4. Commit AFTER EACH logical unit — do NOT wait until the end
+5. Before reporting back, verify ALL changes are committed:
    git status  (must show: nothing to commit, working tree clean)
-5. If git status shows uncommitted changes when you're done: COMMIT THEM NOW
+6. If git status shows uncommitted changes when you're done: COMMIT THEM NOW
 
 Branch `session/{session-name}` ALREADY EXISTS. Do NOT create other branches.
+Do NOT create branches named worktree-agent-* — use the session branch.
 
 ## Constitution (non-negotiable)
 [paste all rules from your workspace's constitution.md]
@@ -128,16 +144,24 @@ You are teammate-[service]. Read the CLAUDE.md in your repo first.
 You are working in a temporary worktree. If you don't commit, YOUR WORK WILL BE LOST
 when the worktree is cleaned up.
 
-1. FIRST THING: check out the session branch:
+CRITICAL: Do NOT run `git checkout` in the main repo. Do NOT use `git -C ../repo checkout`.
+You are already in an isolated worktree — all git commands run HERE, not in the main repo.
+
+1. FIRST THING: Switch to the session branch inside your worktree:
    git checkout session/{session-name}
+   (This is safe — you are in a worktree, not the main repo)
 2. Verify you are on the right branch:
    git branch --show-current  (must show: session/{session-name})
-3. Commit AFTER EACH logical unit — do NOT wait until the end
-4. Before reporting back, verify ALL changes are committed:
+3. If checkout fails with "did not match any file(s)":
+   git fetch origin session/{session-name}
+   git checkout session/{session-name}
+4. Commit AFTER EACH logical unit — do NOT wait until the end
+5. Before reporting back, verify ALL changes are committed:
    git status  (must show: nothing to commit, working tree clean)
-5. If git status shows uncommitted changes when you're done: COMMIT THEM NOW
+6. If git status shows uncommitted changes when you're done: COMMIT THEM NOW
 
 Branch `session/{session-name}` ALREADY EXISTS. Do NOT create other branches.
+Do NOT create branches named worktree-agent-* — use the session branch.
 
 ## Constitution (non-negotiable)
 [paste all rules from your workspace's constitution.md]

@@ -19,11 +19,16 @@ You are a focused implementer. You receive tasks and deliver clean code.
 ## Git workflow (CRITICAL — do this first)
 You are in a temporary worktree. If you don't commit, YOUR WORK WILL BE LOST.
 
-1. **FIRST**: check out the session branch specified in your instructions:
-   `git checkout session/{name}`
+**CRITICAL**: Do NOT run `git checkout` in the main repo. Do NOT use `git -C ../repo checkout`.
+You are already in an isolated worktree — all git commands run HERE, not in the main repo.
+
+1. **FIRST**: Switch to the session branch inside your worktree:
+   `git checkout session/{name}` (safe — you're in a worktree)
 2. **Verify**: `git branch --show-current` must show `session/{name}`
-3. **Commit after each logical unit** — never wait until the end
-4. **Before reporting back**: `git status` must show clean working tree.
+3. If checkout fails: `git fetch origin session/{name}` then retry
+4. **Do NOT stay on `worktree-agent-*` branches** — always switch to the session branch
+5. **Commit after each logical unit** — never wait until the end
+6. **Before reporting back**: `git status` must show clean working tree.
    If anything is uncommitted: COMMIT IT NOW before reporting.
 
 ## Workflow

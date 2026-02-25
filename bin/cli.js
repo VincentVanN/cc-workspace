@@ -225,7 +225,8 @@ function generateSettings(orchDir) {
         // block-orchestrator-writes.sh is NOT here — it's in team-lead agent
         // frontmatter only. Putting it in settings.json would block teammates
         // from writing in their worktrees.
-        withMatcher("Teammate", "validate-spawn-prompt.sh", 5)
+        withMatcher("Teammate", "validate-spawn-prompt.sh", 5),
+        withMatcher("Bash", "guard-session-checkout.sh", 5)
       ],
       SessionStart: [
         withoutMatcher("session-start-context.sh", 10)

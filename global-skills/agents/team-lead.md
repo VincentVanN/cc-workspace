@@ -102,8 +102,15 @@ If active sessions exist, display them:
 ### During dispatch
 - Include the session branch in every teammate spawn prompt
 - Teammates use the session branch — they do NOT create their own branches
-- The spawn prompt must say: "Branch session/{name} ALREADY EXISTS.
-  Create your worktree from this branch. ALL commits go on this branch."
+- The spawn prompt MUST include these EXACT instructions:
+  ```
+  CRITICAL: Do NOT run `git checkout` in the main repo. Do NOT use `git -C ../repo checkout`.
+  You are in an isolated worktree — all git commands run HERE.
+  1. git checkout session/{name}  (switch to session branch inside your worktree)
+  2. git branch --show-current    (verify: must show session/{name})
+  3. Do NOT stay on worktree-agent-* branches — use the session branch.
+  Branch session/{name} ALREADY EXISTS. ALL commits go on this branch.
+  ```
 
 ### During collection
 - Verify commits are on the session branch via Task subagent:
