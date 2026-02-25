@@ -104,11 +104,14 @@ If active sessions exist, display them:
 - Teammates use the session branch — they do NOT create their own branches
 - The spawn prompt MUST include these EXACT instructions:
   ```
-  CRITICAL: Do NOT run `git checkout` in the main repo. Do NOT use `git -C ../repo checkout`.
-  You are in an isolated worktree — all git commands run HERE.
-  1. git checkout session/{name}  (switch to session branch inside your worktree)
-  2. git branch --show-current    (verify: must show session/{name})
-  3. Do NOT stay on worktree-agent-* branches — use the session branch.
+  CRITICAL Git workflow — worktree isolation:
+  1. git -C ../[repo] worktree add /tmp/[repo]-[session] session/{name}
+  2. cd /tmp/[repo]-[session]
+  3. git branch --show-current    (verify: must show session/{name})
+  4. ALL work happens in /tmp/[repo]-[session] — NEVER cd into ../[repo]
+  5. NEVER run git checkout/switch outside /tmp/ — it disrupts the main repo
+  6. Commit after each logical unit. Before reporting: git status must be clean.
+  7. Cleanup last: git -C ../[repo] worktree remove /tmp/[repo]-[session]
   Branch session/{name} ALREADY EXISTS. ALL commits go on this branch.
   ```
 
@@ -153,8 +156,8 @@ You use **Agent Teams** (Teammate tool) to orchestrate:
 - You communicate with teammates via **SendMessage** (mid-wave instructions, clarifications)
 - You coordinate via the shared task list
 - Agent Teams teammates benefit from automatic worktree isolation
-- For classic subagents (Task tool), worktree isolation must be
-  explicitly declared via `isolation: worktree` in the frontmatter
+- For classic subagents (Task tool with implementer), the teammate
+  creates its own worktree of the target repo in /tmp/ (see implementer agent)
 
 For lightweight read-only tasks (scans, checks), you can use Task
 with Explore subagents (Haiku) — faster and cheaper.
