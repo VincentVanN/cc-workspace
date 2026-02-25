@@ -256,65 +256,10 @@ function generateSettings(orchDir) {
   fs.writeFileSync(path.join(orchDir, ".claude", "settings.json"), JSON.stringify(settings, null, 2) + "\n");
 }
 
-// ─── Block hook (inline, always regenerated) ────────────────
-function generateBlockHook(hooksDir) {
-  const blockHook = `#!/usr/bin/env bash
-# block-orchestrator-writes.sh v${PKG.version}
-# PreToolUse hook: blocks writes to sibling repos. Allows writes within orchestrator/.
-set -euo pipefail
-
-INPUT=$(cat)
-
-FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.path // empty' 2>/dev/null) || FILE_PATH=""
-
-if [ -z "$FILE_PATH" ]; then
-    cat << 'EOF'
-{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Cannot determine target path. Delegate to a teammate."}}
-EOF
-    exit 0
-fi
-
-ORCH_DIR="\${CLAUDE_PROJECT_DIR:-.}"
-ORCH_ABS="$(cd "$ORCH_DIR" 2>/dev/null && pwd)" || ORCH_ABS=""
-
-if [ -d "$(dirname "$FILE_PATH")" ]; then
-    TARGET_ABS="$(cd "$(dirname "$FILE_PATH")" 2>/dev/null && pwd)/$(basename "$FILE_PATH")"
-else
-    TARGET_ABS="$FILE_PATH"
-fi
-
-if [ -n "$ORCH_ABS" ]; then
-    case "$TARGET_ABS" in
-        "$ORCH_ABS"/*)
-            exit 0
-            ;;
-    esac
-fi
-
-PARENT_DIR="$(dirname "$ORCH_ABS" 2>/dev/null)" || PARENT_DIR=""
-if [ -n "$PARENT_DIR" ]; then
-    for repo_dir in "$PARENT_DIR"/*/; do
-        [ -d "$repo_dir/.git" ] || continue
-        REPO_ABS="$(cd "$repo_dir" 2>/dev/null && pwd)"
-        case "$TARGET_ABS" in
-            "$REPO_ABS"/*)
-                REPO_NAME=$(basename "$REPO_ABS")
-                cat << EOF
-{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"BLOCKED: Cannot write in repo $REPO_NAME/. Delegate to a teammate via Agent Teams."}}
-EOF
-                exit 0
-                ;;
-        esac
-    done
-fi
-
-cat << 'EOF'
-{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"BLOCKED: Write target is outside orchestrator/. Delegate to a teammate."}}
-EOF
-exit 0
-`;
-  fs.writeFileSync(path.join(hooksDir, "block-orchestrator-writes.sh"), blockHook, { mode: 0o755 });
-}
+// ─── Block hook ──────────────────────────────────────────────
+// block-orchestrator-writes is now ONLY in team-lead agent frontmatter.
+// It is NOT in settings.json (would be inherited by teammates, blocking their writes).
+// The generateBlockHook() function was removed in v4.1.4.
 
 // ─── CLAUDE.md content ──────────────────────────────────────
 function claudeMdContent() {
