@@ -88,6 +88,41 @@ vs done per service, visible at a glance.
 
 Independent services go in the same wave. Save. **Present plan, wait for approval.**
 
+## Phase 2.5: Session setup (branch isolation)
+
+After plan approval and before dispatch:
+
+1. Derive session name from feature name (slug: lowercase, hyphens, no spaces)
+2. Read `./workspace.md` — extract the `Source Branch` column for each service
+3. Identify repos impacted by the plan
+4. Write `./.sessions/{session-name}.json`:
+   ```json
+   {
+     "name": "{session-name}",
+     "created": "{date}",
+     "status": "active",
+     "repos": {
+       "{service}": {
+         "path": "../{service}",
+         "source_branch": "{from workspace.md}",
+         "session_branch": "session/{session-name}",
+         "branch_created": false
+       }
+     }
+   }
+   ```
+5. Spawn a **Task subagent with Bash** to create branches in each impacted repo:
+   ```
+   git -C ../[repo] branch session/{name} {source_branch}
+   ```
+   - Use `git branch` — NOT `git checkout -b` (checkout disrupts other sessions)
+   - If the branch already exists, verify it points to the right source and skip
+   - The Task subagent reports success/failure per repo
+6. Update the session JSON: set `branch_created: true` for each successful branch
+
+> **Why a Task subagent?** The team-lead has `disallowedTools: Bash`.
+> Branch creation requires shell access, so it must be delegated.
+
 ## Phase 3: Spawn teammates (Agent Teams)
 
 Use the **Teammate** tool to spawn teammates. Each teammate is an independent
@@ -101,6 +136,8 @@ For EVERY teammate, include in the spawn prompt:
 3. API contract (if applicable)
 4. Instruction to read repo CLAUDE.md first
 5. Instruction to escalate architectural decisions not in the plan
+6. Session branch: `session/{name}` — tell the teammate this branch ALREADY EXISTS,
+   all commits go on it, they must NOT create other branches
 
 See @references/spawn-templates.md for the full templates per service type
 (backend, frontend, infra, explore).
@@ -148,6 +185,9 @@ On each teammate report:
 2. Update the **progress tracker** table (commits done / planned)
 3. Note dead code found
 4. Verify commit count and sizes — flag if a teammate made a single giant commit
+4b. Verify commits are on the session branch (not on a rogue branch):
+    - Spawn a Task subagent (Bash): `git -C ../[repo] log session/{name} --oneline -5`
+    - If teammate committed on a different branch, flag it as a blocker
 5. If a teammate failed → analyze, correct plan, re-dispatch
 6. **Session log** entry: `[HH:MM] teammate-[service]: [status], [N] commits, [N] files, tests [pass/fail]`
 7. If current wave done → launch next wave

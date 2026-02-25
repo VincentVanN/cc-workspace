@@ -301,6 +301,7 @@ Run once. Idempotent — can be re-run to re-diagnose.
 - Templates: \`./templates/\`
 - Service profiles: \`./plans/service-profiles.md\`
 - Active plans: \`./plans/*.md\`
+- Active sessions: \`./.sessions/*.json\`
 
 ## Skills (9)
 - **dispatch-feature**: 4 modes, clarify → plan → waves → collect → verify
@@ -327,6 +328,8 @@ Run once. Idempotent — can be re-run to re-diagnose.
 11. Compact after each cycle
 12. Hooks are warning-only — never blocking
 13. Retrospective cycle after each completed feature
+14. Session branches for parallel isolation — teammates use session/{name}, never create own branches
+15. Never \`git checkout -b\` in repos — use \`git branch\` (no checkout) to avoid disrupting parallel sessions
 `;
 }
 
@@ -343,9 +346,9 @@ function planTemplateContent() {
 [Clarify answers]
 
 ## Impacted services
-| Service | Impacted | Branch | Teammate | Status |
-|---------|----------|--------|----------|--------|
-| | yes/no | feature/[name] | | ⏳ |
+| Service | Impacted | Session Branch | Teammate | Status |
+|---------|----------|----------------|----------|--------|
+| | yes/no | session/[name] | | ⏳ |
 
 ## Waves
 - Wave 1: [producers]
@@ -463,6 +466,13 @@ function updateLocal() {
     ok("_TEMPLATE.md updated");
   }
 
+  // ── .sessions/ (create if missing) ──
+  const sessionsDir = path.join(orchDir, ".sessions");
+  if (!fs.existsSync(sessionsDir)) {
+    mkdirp(sessionsDir);
+    ok(".sessions/ created");
+  }
+
   // ── NEVER touch: workspace.md, constitution.md, plans/*.md, service-profiles.md ──
   info(`${c.dim}workspace.md, constitution.md, plans/ — preserved${c.reset}`);
 
@@ -479,6 +489,7 @@ function setupWorkspace(workspacePath, projectName) {
   mkdirp(path.join(orchDir, ".claude", "hooks"));
   mkdirp(path.join(orchDir, "plans"));
   mkdirp(path.join(orchDir, "templates"));
+  mkdirp(path.join(orchDir, ".sessions"));
   ok("Structure created");
 
   // ── Templates ──
@@ -560,6 +571,7 @@ function setupWorkspace(workspacePath, projectName) {
   if (!fs.existsSync(gi)) {
     fs.writeFileSync(gi, [
       ".claude/bash-commands.log", ".claude/worktrees/", ".claude/modified-files.log",
+      ".sessions/",
       "plans/*.md", "!plans/_TEMPLATE.md", "!plans/service-profiles.md", ""
     ].join("\n"));
     ok(".gitignore");
@@ -690,6 +702,7 @@ function doctor() {
     check("plans/", fs.existsSync(path.join(cwd, "plans")), "missing");
     check("templates/", fs.existsSync(path.join(cwd, "templates")), "missing");
     check(".claude/hooks/", fs.existsSync(path.join(cwd, ".claude", "hooks")), "missing");
+    check(".sessions/", fs.existsSync(path.join(cwd, ".sessions")), "missing — run: npx cc-workspace update");
     const configured = !fs.readFileSync(path.join(cwd, "workspace.md"), "utf8").includes("[UNCONFIGURED]");
     check("workspace.md configured", configured, "[UNCONFIGURED] — run: claude --agent workspace-init");
   } else if (hasOrch) {
@@ -709,6 +722,37 @@ function doctor() {
     log(`  ${c.bgRed} ${failed.length} ISSUE(S) FOUND ${c.reset}`);
   }
   log("");
+}
+
+// ─── Session helpers ─────────────────────────────────────────
+function findOrchDir() {
+  const cwd = process.cwd();
+  if (fs.existsSync(path.join(cwd, "workspace.md"))) return cwd;
+  if (fs.existsSync(path.join(cwd, "orchestrator", "workspace.md")))
+    return path.join(cwd, "orchestrator");
+  return null;
+}
+
+function readSessions(orchDir) {
+  const sessDir = path.join(orchDir, ".sessions");
+  if (!fs.existsSync(sessDir)) return [];
+  return fs.readdirSync(sessDir)
+    .filter(f => f.endsWith(".json"))
+    .map(f => {
+      try {
+        return JSON.parse(fs.readFileSync(path.join(sessDir, f), "utf8"));
+      } catch { return null; }
+    })
+    .filter(Boolean);
+}
+
+function sessionStatusBadge(status) {
+  const badges = {
+    active: `${c.green}active${c.reset}`,
+    closed: `${c.dim}closed${c.reset}`,
+    closing: `${c.yellow}closing${c.reset}`,
+  };
+  return badges[status] || status;
 }
 
 // ─── CLI ────────────────────────────────────────────────────
@@ -777,6 +821,15 @@ switch (command) {
     log(`    ${c.cyan}npx cc-workspace doctor${c.reset}`);
     log(`      Check all components are installed and consistent.`);
     log("");
+    log(`    ${c.cyan}npx cc-workspace session list${c.reset}`);
+    log(`      Show all active sessions and their branches.`);
+    log("");
+    log(`    ${c.cyan}npx cc-workspace session status${c.reset} ${c.dim}<name>${c.reset}`);
+    log(`      Show detailed session info: commits per repo on session branch.`);
+    log("");
+    log(`    ${c.cyan}npx cc-workspace session close${c.reset} ${c.dim}<name>${c.reset}`);
+    log(`      Interactive close: create PRs, delete branches, clean up.`);
+    log("");
     log(`    ${c.cyan}npx cc-workspace version${c.reset}`);
     log(`      Show package and installed versions.`);
     log("");
@@ -787,6 +840,184 @@ switch (command) {
     log(`    ${c.dim}  └─ type "go" to start the diagnostic${c.reset}`);
     log(`    ${c.cyan}claude --agent team-lead${c.reset}        ${c.dim}# work sessions${c.reset}`);
     log("");
+    break;
+  }
+
+  case "session": {
+    const subCmd = args[1];
+    const orchDir = findOrchDir();
+    if (!orchDir) {
+      fail("No orchestrator/ found. Run from workspace root or orchestrator/.");
+      process.exit(1);
+    }
+
+    switch (subCmd) {
+      case "list": {
+        log(BANNER_SMALL);
+        step("Active sessions");
+        const sessions = readSessions(orchDir);
+        if (sessions.length === 0) {
+          info(`${c.dim}No sessions found in .sessions/${c.reset}`);
+        } else {
+          for (const s of sessions) {
+            const repoCount = Object.keys(s.repos || {}).length;
+            log(`  ${c.bold}${s.name}${c.reset}  ${sessionStatusBadge(s.status)}  ${c.dim}created: ${s.created}${c.reset}  ${c.dim}repos: ${repoCount}${c.reset}`);
+            for (const [name, repo] of Object.entries(s.repos || {})) {
+              const branchIcon = repo.branch_created ? `${c.green}✓${c.reset}` : `${c.red}✗${c.reset}`;
+              log(`    ${c.dim}├──${c.reset} ${name}  ${repo.session_branch}  ${branchIcon}`);
+            }
+          }
+        }
+        log("");
+        break;
+      }
+
+      case "status": {
+        const sessionName = args[2];
+        if (!sessionName) {
+          fail("Usage: cc-workspace session status <name>");
+          process.exit(1);
+        }
+        log(BANNER_SMALL);
+        const sessionFile = path.join(orchDir, ".sessions", `${sessionName}.json`);
+        if (!fs.existsSync(sessionFile)) {
+          fail(`Session "${sessionName}" not found`);
+          process.exit(1);
+        }
+        const session = JSON.parse(fs.readFileSync(sessionFile, "utf8"));
+        step(`Session: ${session.name}`);
+        log(`  ${c.dim}Status${c.reset}   ${sessionStatusBadge(session.status)}`);
+        log(`  ${c.dim}Created${c.reset}  ${session.created}`);
+        log("");
+
+        for (const [name, repo] of Object.entries(session.repos || {})) {
+          const repoPath = path.resolve(orchDir, repo.path);
+          log(`  ${c.bold}${name}${c.reset} ${c.dim}(${repo.path})${c.reset}`);
+          log(`    source: ${repo.source_branch}  →  session: ${repo.session_branch}`);
+          if (repo.branch_created && fs.existsSync(path.join(repoPath, ".git"))) {
+            try {
+              const commits = execSync(
+                `git -C "${repoPath}" log ${repo.session_branch} --oneline --not ${repo.source_branch} 2>/dev/null || echo "(no commits yet)"`,
+                { encoding: "utf8", timeout: 5000 }
+              ).trim();
+              log(`    ${c.dim}commits:${c.reset}`);
+              for (const line of commits.split("\n").slice(0, 10)) {
+                log(`      ${line}`);
+              }
+            } catch {
+              log(`    ${c.yellow}(could not read commits)${c.reset}`);
+            }
+          }
+          log("");
+        }
+        break;
+      }
+
+      case "close": {
+        const sessionName = args[2];
+        if (!sessionName) {
+          fail("Usage: cc-workspace session close <name>");
+          process.exit(1);
+        }
+        const sessionFile = path.join(orchDir, ".sessions", `${sessionName}.json`);
+        if (!fs.existsSync(sessionFile)) {
+          fail(`Session "${sessionName}" not found`);
+          process.exit(1);
+        }
+        const session = JSON.parse(fs.readFileSync(sessionFile, "utf8"));
+
+        log(BANNER_SMALL);
+        step(`Closing session: ${session.name}`);
+        log("");
+
+        const readline = require("readline");
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+        const ask = (q) => new Promise(r => rl.question(q, r));
+
+        (async () => {
+          // Step 1: offer to create PRs
+          for (const [name, repo] of Object.entries(session.repos || {})) {
+            if (!repo.branch_created) continue;
+            const repoPath = path.resolve(orchDir, repo.path);
+            const answer = await ask(
+              `  Create PR ${c.cyan}${repo.session_branch}${c.reset} → ${c.cyan}${repo.source_branch}${c.reset} in ${c.bold}${name}${c.reset}? [y/N] `
+            );
+            if (answer.toLowerCase() === "y") {
+              try {
+                const result = execSync(
+                  `cd "${repoPath}" && gh pr create --base "${repo.source_branch}" --head "${repo.session_branch}" --title "${session.name}: ${name}" --body "Session: ${session.name}"`,
+                  { encoding: "utf8", timeout: 30000 }
+                );
+                ok(`PR created: ${result.trim()}`);
+              } catch (e) {
+                fail(`PR creation failed: ${e.stderr || e.message}`);
+              }
+            }
+          }
+
+          // Step 2: offer to delete session branches
+          for (const [name, repo] of Object.entries(session.repos || {})) {
+            if (!repo.branch_created) continue;
+            const repoPath = path.resolve(orchDir, repo.path);
+            // Check for unpushed commits before offering deletion
+            let unpushed = "";
+            try {
+              unpushed = execSync(
+                `git -C "${repoPath}" log "${repo.session_branch}" --oneline --not --remotes 2>/dev/null`,
+                { encoding: "utf8", timeout: 5000 }
+              ).trim();
+            } catch { /* branch may not have remote tracking */ }
+            if (unpushed) {
+              warn(`${name}: ${unpushed.split("\\n").length} unpushed commit(s) on ${repo.session_branch}`);
+            }
+            const answer = await ask(
+              `  Delete branch ${c.cyan}${repo.session_branch}${c.reset} in ${c.bold}${name}${c.reset}?${unpushed ? ` ${c.red}(has unpushed commits)${c.reset}` : ""} [y/N] `
+            );
+            if (answer.toLowerCase() === "y") {
+              try {
+                // Use -D (force) — user already confirmed, branch may not be merged yet
+                execSync(`git -C "${repoPath}" branch -D "${repo.session_branch}"`,
+                  { encoding: "utf8", timeout: 5000 });
+                ok(`Branch deleted in ${name}`);
+              } catch (e) {
+                fail(`Branch deletion failed in ${name}: ${e.stderr || e.message}`);
+              }
+            }
+          }
+
+          // Step 3: offer to delete session JSON
+          const answer = await ask(
+            `  Delete session file ${c.dim}.sessions/${sessionName}.json${c.reset}? [y/N] `
+          );
+          if (answer.toLowerCase() === "y") {
+            fs.unlinkSync(sessionFile);
+            ok("Session file deleted");
+          } else {
+            session.status = "closed";
+            fs.writeFileSync(sessionFile, JSON.stringify(session, null, 2) + "\n");
+            ok("Session marked as closed");
+          }
+
+          rl.close();
+          log("");
+        })();
+        break;
+      }
+
+      default:
+        if (!subCmd) {
+          log(BANNER_SMALL);
+          log(`\n  ${c.bold}Usage:${c.reset}`);
+          log(`    ${c.cyan}cc-workspace session list${c.reset}              ${c.dim}Show active sessions${c.reset}`);
+          log(`    ${c.cyan}cc-workspace session status${c.reset} ${c.dim}<name>${c.reset}    ${c.dim}Detailed session info${c.reset}`);
+          log(`    ${c.cyan}cc-workspace session close${c.reset} ${c.dim}<name>${c.reset}     ${c.dim}Interactive close${c.reset}`);
+          log("");
+        } else {
+          fail(`Unknown session subcommand: ${subCmd}`);
+          log(`  Usage: ${c.cyan}cc-workspace session${c.reset} ${c.dim}list | status <name> | close <name>${c.reset}`);
+          process.exit(1);
+        }
+    }
     break;
   }
 

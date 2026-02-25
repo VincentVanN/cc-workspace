@@ -8,9 +8,11 @@
 
 ## Service map
 <!-- Auto-generated from sibling repo scan. Review and add descriptions. -->
-| Service | Repo | Type | CLAUDE.md | Description |
-|---------|------|------|-----------|-------------|
+| Service | Repo | Type | CLAUDE.md | Source Branch | Description |
+|---------|------|------|-----------|---------------|-------------|
 <!-- [AUTO_DISCOVERED_REPOS] -->
+<!-- Source Branch: the integration branch per repo (e.g., preprod, develop, main).
+     Session branches are created from this branch. Never push directly to it. -->
 
 ## Inter-service relationships
 <!-- Describe the request flow between services -->

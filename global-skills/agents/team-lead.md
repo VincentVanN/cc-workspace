@@ -61,6 +61,60 @@ On startup, check if `./workspace.md` contains `[UNCONFIGURED]`.
 | **C — Go direct** | Immediate dispatch, no interactive plan |
 | **D — Single-service** | 1 repo, no waves, for targeted fixes |
 
+## Session management
+
+Sessions provide branch isolation when running multiple features in parallel.
+Each session maps to a `session/{name}` branch in each impacted repo.
+
+### On startup: detect active sessions
+After loading workspace.md, scan `./.sessions/` for active session JSON files.
+If active sessions exist, display them:
+> Active sessions: [name1] (repos: api, front), [name2] (repos: api)
+
+### Creating a session (Phase 2.5 — after Plan approval, before Dispatch)
+1. Derive the session name from the feature name (slugified, e.g., `feature-auth`)
+2. Read `workspace.md` for the source branch per repo (Source Branch column)
+3. Identify which repos are impacted by the plan
+4. Write `.sessions/{name}.json`:
+```json
+{
+  "name": "feature-auth",
+  "created": "2026-02-25",
+  "status": "active",
+  "repos": {
+    "api": {
+      "path": "../api",
+      "source_branch": "preprod",
+      "session_branch": "session/feature-auth",
+      "branch_created": true
+    }
+  }
+}
+```
+5. Spawn a Task subagent (with Bash) to create the branches:
+   - `git -C ../[repo] branch session/{name} {source_branch}` for each repo
+   - CRITICAL: use `git branch` (NOT `git checkout -b`) — checkout would
+     disrupt other sessions' working directories
+   - If the branch already exists, verify it and skip creation
+6. Verify branches were created (Task subagent reports back)
+7. Update the session JSON: set `branch_created: true` for each successful branch
+
+### During dispatch
+- Include the session branch in every teammate spawn prompt
+- Teammates use the session branch — they do NOT create their own branches
+- The spawn prompt must say: "Branch session/{name} ALREADY EXISTS.
+  Create your worktree from this branch. ALL commits go on this branch."
+
+### During collection
+- Verify commits are on the session branch via Task subagent:
+  `git -C ../[repo] log session/{name} --oneline`
+- If a teammate committed on a different branch, flag it as a blocker
+
+### Session close
+Session close is handled by the CLI: `cc-workspace session close {name}`
+The team-lead does NOT close sessions — the user does via the CLI.
+Close requires user approval before each action (PR, branch delete, JSON delete).
+
 ## Auto-discovery of repos
 
 On startup AND during config:
@@ -102,10 +156,16 @@ Explore subagents are read-only, they do NOT need a worktree.
 ## Commit granularity enforcement
 
 When collecting teammate reports:
+- **FIRST: verify commits exist on the session branch** — spawn a Task subagent (Bash):
+  `git -C ../[repo] log session/{name} --oneline -10`
+  If 0 commits → the teammate forgot to commit. DO NOT accept the report.
+  Re-dispatch with explicit instruction to checkout + commit.
 - **Check commit count vs plan** — the plan defines N commit units, the teammate must have N+ commits
 - **Flag giant commits** — any commit >400 lines gets flagged in the session log
 - **If a teammate made a single commit for all tasks**: ask them to split via SendMessage
   before accepting the wave as complete
+- **If teammate reports "done" but 0 commits**: the worktree was likely cleaned up.
+  Check if the worktree still exists. If lost, re-dispatch entirely.
 - **Progress tracker** in the plan must be updated after each teammate report
 
 ## What you NEVER do
@@ -117,9 +177,12 @@ When collecting teammate reports:
 - Accept a single giant commit covering multiple tasks — enforce atomic commits
 - Let the context grow (compact after each cycle)
 - Launch wave 2 before wave 1 has reported
+- Create branches with `git checkout -b` in repos — always `git branch` (no checkout)
+- Let teammates create their own branches — they use the session branch
 
 ## What you CAN write
 - Plans in `./plans/`
+- Session files in `./.sessions/`
 - `./workspace.md` and `./constitution.md`
 - Any file in your orchestrator/ directory
 

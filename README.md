@@ -88,13 +88,13 @@ my-workspace/
 │   ├── .claude/
 │   │   ├── settings.json           <- env vars + hooks
 │   │   └── hooks/
-│   │       ├── block-orchestrator-writes.sh
 │   │       ├── session-start-context.sh
 │   │       ├── validate-spawn-prompt.sh
-│   │       └── ...                  <- 11 scripts
+│   │       └── ...                  <- 9 scripts (all warning-only)
 │   ├── CLAUDE.md                    <- orchestrator profile
 │   ├── workspace.md                 <- filled by workspace-init
 │   ├── constitution.md              <- filled by workspace-init
+│   ├── .sessions/                   <- session state (gitignored, created per session)
 │   ├── templates/
 │   │   ├── workspace.template.md
 │   │   ├── constitution.template.md
@@ -106,6 +106,70 @@ my-workspace/
 ├── repo-a/          (.git)          <- teammate worktree
 ├── repo-b/          (.git)          <- teammate worktree
 └── repo-c/          (.git)          <- teammate worktree
+```
+
+---
+
+## Parallel sessions (branch isolation)
+
+Run multiple features in parallel without branch conflicts.
+
+### The problem
+
+When two orchestrator sessions dispatch teammates to the same repo, branches get mixed:
+teammates from session B may branch off session A's code. The result is interleaved commits
+and confused agents.
+
+### The solution
+
+Each feature gets a **session** — a named scope that maps to a dedicated `session/{name}`
+branch in each impacted repo. Branches are created from a configurable **source branch**
+(e.g., `preprod`, `develop`) defined per repo in `workspace.md`.
+
+### Setup source branches (one time)
+
+In `workspace.md`, add the `Source Branch` column to the service map:
+
+```markdown
+| Service  | Repo        | Type     | CLAUDE.md | Source Branch | Description    |
+|----------|-------------|----------|-----------|---------------|----------------|
+| api      | ../api      | backend  | ✓         | preprod       | REST API       |
+| frontend | ../frontend | frontend | ✓         | preprod       | Vue/Quasar SPA |
+```
+
+### How it works
+
+1. The team-lead identifies impacted repos during planning (Phase 2)
+2. After plan approval, **Phase 2.5** creates a session:
+   - Writes `.sessions/{name}.json` with impacted repos only
+   - Spawns a Task subagent to run `git branch session/{name} {source}` in each repo
+   - Uses `git branch` (NOT `git checkout -b`) to avoid disrupting other sessions
+3. Teammates receive the session branch in their spawn prompt — they do NOT create their own branches
+4. PRs go from `session/{name}` → `source_branch` (never to main directly)
+
+### Session CLI commands
+
+```bash
+cc-workspace session list                  # show active sessions + branches
+cc-workspace session status feature-auth   # commits per repo on session branch
+cc-workspace session close feature-auth    # interactive: create PRs, delete branches, clean up
+```
+
+`session close` asks for confirmation before every action (PR creation, branch deletion, JSON cleanup).
+
+### Parallel workflow
+
+```bash
+# Terminal 1
+cd orchestrator/
+claude --agent team-lead
+# → "Implement OAuth" → creates session/feature-auth in api/ + frontend/
+
+# Terminal 2
+cd orchestrator/
+claude --agent team-lead
+# → "Add billing" → creates session/feature-billing in api/ + frontend/
+# Both sessions are fully isolated — different branches, no conflicts
 ```
 
 ---
@@ -149,6 +213,7 @@ parallel in each repo via Agent Teams.
 ```
 CLARIFY  -> ask max 5 questions if ambiguity
 PLAN     -> write the plan in ./plans/, wait for approval
+SESSION  -> create session branches in impacted repos (Phase 2.5)
 SPAWN    -> Wave 1: API/data in parallel
            Wave 2: frontend with validated API contract
            Wave 3: infra/config if applicable
@@ -160,14 +225,13 @@ REPORT   -> final summary
 ### Security — path-aware writes
 
 The orchestrator can write in `orchestrator/` (plans, workspace.md, constitution.md)
-but never in sibling repos. The `block-orchestrator-writes.sh` hook dynamically
-detects if the target path is in a repo (presence of `.git/`).
+but never in sibling repos. A `PreToolUse` hook in the team-lead agent frontmatter
+dynamically checks if the target path is inside orchestrator/ before allowing writes.
 
 Protection layers:
 1. `disallowedTools: Bash` in agent frontmatter
 2. `tools` whitelist in agent frontmatter (note: `allowed-tools` is the skill equivalent)
-3. `PreToolUse` path-aware hook in agent frontmatter
-4. `block-orchestrator-writes.sh` hook in .claude/hooks/
+3. `PreToolUse` path-aware hook in agent frontmatter (team-lead only — teammates write freely in their worktrees)
 
 ---
 
@@ -200,15 +264,15 @@ next one starts. The plan on disk is the source of truth.
 
 ---
 
-## The 9 hooks + 1 agent-level hook
+## The 9 hooks (settings.json) + 1 agent-level hook (team-lead frontmatter)
 
 All hooks in settings.json are **non-blocking** (exit 0 + warning). No hook blocks the session.
 
 | Hook | Event | Effect |
 |------|-------|--------|
-| **block-orchestrator-writes** | `PreToolUse` Write\|Edit\|MultiEdit | Blocks writes in repos, allows orchestrator/. **Agent frontmatter only** (team-lead) — not in settings.json, so teammates can write freely. |
-| **validate-spawn-prompt** | `PreToolUse` Teammate | Warning if missing context (rules, UX, tasks) |
-| **session-start-context** | `SessionStart` | Injects active plans + first session detection |
+| **path-aware write guard** | `PreToolUse` Write\|Edit\|MultiEdit | Blocks writes outside orchestrator/. **Agent frontmatter only** (team-lead) — not in settings.json, so teammates write freely in worktrees. |
+| **validate-spawn-prompt** | `PreToolUse` Teammate | Warning if missing context (rules, UX, tasks, session branch) |
+| **session-start-context** | `SessionStart` | Injects active plans + active sessions + first session detection |
 | **user-prompt-guard** | `UserPromptSubmit` | Warning if code requested in a repo |
 | **subagent-start-context** | `SubagentStart` | Injects active plan + constitution |
 | **permission-auto-approve** | `PermissionRequest` | Auto-approve Read/Glob/Grep |
@@ -336,6 +400,20 @@ Both `init` and `update` are safe to re-run:
 - **Always copied**: hooks, templates
 - **Always regenerated on init**: `service-profiles.md` (fresh scan)
 - **Global components**: only updated if the version is newer (or `--force`)
+
+---
+
+## Changelog v4.1.4 -> v4.2.0
+
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | **Session management** | Branch isolation for parallel features. Each session creates `session/{name}` branches in impacted repos only. `git branch` (no checkout) to avoid disrupting other sessions. |
+| 2 | **Source branch per repo** | `workspace.md` service map now includes a `Source Branch` column (e.g., `preprod`, `develop`). Session branches are created from this branch. |
+| 3 | **Phase 2.5 in dispatch** | New phase between Plan and Dispatch: creates session JSON + branches via Task subagent. |
+| 4 | **CLI session commands** | `cc-workspace session list/status/close`. Close is interactive — asks confirmation before PRs, branch deletion, JSON cleanup. |
+| 5 | **Session-aware hooks** | `session-start-context.sh` detects active sessions. `validate-spawn-prompt.sh` warns if session branch missing from spawn prompt. |
+| 6 | **Spawn templates updated** | Teammates use `session/{name}` branch (already exists). No more `feature/[name]` — teammates never create their own branches. |
+| 7 | **merge-prep session-aware** | Reads `.sessions/` for branch names and source branches. PRs target source branch, not hardcoded main. |
 
 ---
 

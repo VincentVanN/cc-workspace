@@ -11,6 +11,21 @@ Reference file for dispatch-feature. Loaded on-demand, not at skill activation.
 ```
 You are teammate-[service]. Read the CLAUDE.md in your repo first.
 
+## Git workflow (CRITICAL — read first)
+You are working in a temporary worktree. If you don't commit, YOUR WORK WILL BE LOST
+when the worktree is cleaned up.
+
+1. FIRST THING: check out the session branch:
+   git checkout session/{session-name}
+2. Verify you are on the right branch:
+   git branch --show-current  (must show: session/{session-name})
+3. Commit AFTER EACH logical unit — do NOT wait until the end
+4. Before reporting back, verify ALL changes are committed:
+   git status  (must show: nothing to commit, working tree clean)
+5. If git status shows uncommitted changes when you're done: COMMIT THEM NOW
+
+Branch `session/{session-name}` ALREADY EXISTS. Do NOT create other branches.
+
 ## Constitution (non-negotiable)
 [paste all rules from your workspace's constitution.md]
 
@@ -30,7 +45,8 @@ You are teammate-[service]. Read the CLAUDE.md in your repo first.
 6. **Atomic commits** — follow the commit plan below
 7. If you hit an architectural decision NOT covered by the plan: STOP and
    report the dilemma instead of guessing
-8. Report back: files created/modified, tests pass/fail, dead code found,
+8. **Before reporting back**: run `git status` — if anything is uncommitted, commit it NOW
+9. Report back: files created/modified, tests pass/fail, dead code found,
    commits made (hash + message), blockers
 
 ## Commit strategy (mandatory)
@@ -43,13 +59,27 @@ You are teammate-[service]. Read the CLAUDE.md in your repo first.
 - **Commit message format**: `feat(domain): description` or `fix(domain): description`
 - **Each commit must compile and pass tests** — no broken intermediate states
 - **Commit as you go** — do NOT accumulate all changes for a single final commit
-- Branch: `feature/[name]` — create it on your first commit
 ```
 
 ## Frontend teammate spawn template
 
 ```
 You are teammate-[service]. Read the CLAUDE.md in your repo first.
+
+## Git workflow (CRITICAL — read first)
+You are working in a temporary worktree. If you don't commit, YOUR WORK WILL BE LOST
+when the worktree is cleaned up.
+
+1. FIRST THING: check out the session branch:
+   git checkout session/{session-name}
+2. Verify you are on the right branch:
+   git branch --show-current  (must show: session/{session-name})
+3. Commit AFTER EACH logical unit — do NOT wait until the end
+4. Before reporting back, verify ALL changes are committed:
+   git status  (must show: nothing to commit, working tree clean)
+5. If git status shows uncommitted changes when you're done: COMMIT THEM NOW
+
+Branch `session/{session-name}` ALREADY EXISTS. Do NOT create other branches.
 
 ## Constitution (non-negotiable)
 [paste all rules from your workspace's constitution.md]
@@ -72,8 +102,9 @@ You are teammate-[service]. Read the CLAUDE.md in your repo first.
 6. List any dead code (unused components, composables, store actions, CSS)
 7. **Atomic commits** — follow the commit plan below
 8. If you hit an architectural decision NOT covered by the plan: STOP and escalate
-9. Report back: files created/modified, tests pass/fail, dead code found,
-   UX compliance, commits made (hash + message), blockers
+9. **Before reporting back**: run `git status` — if anything is uncommitted, commit it NOW
+10. Report back: files created/modified, tests pass/fail, dead code found,
+    UX compliance, commits made (hash + message), blockers
 
 ## Commit strategy (mandatory)
 - **One commit per logical unit** — each task = one commit minimum
@@ -86,13 +117,27 @@ You are teammate-[service]. Read the CLAUDE.md in your repo first.
 - **Commit message format**: `feat(domain): description` or `fix(domain): description`
 - **Each commit must compile and pass tests** — no broken intermediate states
 - **Commit as you go** — do NOT accumulate all changes for a single final commit
-- Branch: `feature/[name]` — create it on your first commit
 ```
 
 ## Infra/Config teammate spawn template
 
 ```
 You are teammate-[service]. Read the CLAUDE.md in your repo first.
+
+## Git workflow (CRITICAL — read first)
+You are working in a temporary worktree. If you don't commit, YOUR WORK WILL BE LOST
+when the worktree is cleaned up.
+
+1. FIRST THING: check out the session branch:
+   git checkout session/{session-name}
+2. Verify you are on the right branch:
+   git branch --show-current  (must show: session/{session-name})
+3. Commit AFTER EACH logical unit — do NOT wait until the end
+4. Before reporting back, verify ALL changes are committed:
+   git status  (must show: nothing to commit, working tree clean)
+5. If git status shows uncommitted changes when you're done: COMMIT THEM NOW
+
+Branch `session/{session-name}` ALREADY EXISTS. Do NOT create other branches.
 
 ## Constitution (non-negotiable)
 [paste all rules from your workspace's constitution.md]
@@ -108,9 +153,9 @@ You are teammate-[service]. Read the CLAUDE.md in your repo first.
 5. **Atomic commits** — one commit per logical config change
 6. Commit message format: `chore(service): description`
 7. If you hit an architectural decision NOT covered by the plan: STOP and escalate
-8. Report back: files modified, consistency check results,
+8. **Before reporting back**: run `git status` — if anything is uncommitted, commit it NOW
+9. Report back: files modified, consistency check results,
    commits made (hash + message), blockers
-- Branch: `feature/[name]`
 ```
 
 ## Explore/Haiku subagent template (read-only)
@@ -134,3 +179,6 @@ When a teammate reports back:
 - **Architectural decision not in plan** (blocking): STOP the wave, escalate to user
 - **No report after extended time**: send a status request via SendMessage
 - **Max re-dispatches per teammate per wave**: 2. After that, escalate to user.
+- **0 commits reported**: the teammate likely forgot to commit. Check the worktree
+  with a Task subagent before accepting the report. If changes exist uncommitted,
+  re-dispatch with explicit instruction to commit.

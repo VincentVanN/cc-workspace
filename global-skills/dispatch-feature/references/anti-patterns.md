@@ -18,6 +18,10 @@ Reference file for dispatch-feature. Loaded on-demand when Claude needs reminder
 10. **NEVER keep code details in your context** — summarize to 3 lines in the plan, then compact
 11. **NEVER assume repos are listed in workspace.md** — scan `../` at feature start for
     any new `.git` repos that may have appeared since last configuration
+12. **NEVER let teammates create their own branches** — they must use the session branch
+    (`session/{name}`). The team-lead creates it during Phase 2.5.
+13. **NEVER use `git checkout -b` in repos** — use `git branch {name} {source}` (no checkout).
+    Checkout changes the working directory, which disrupts other sessions running in parallel.
 
 ## Common mistakes to watch for
 
@@ -31,3 +35,8 @@ Reference file for dispatch-feature. Loaded on-demand when Claude needs reminder
 | Giant commit (500+ lines) | PR unreadable, impossible to review | Split into atomic commits (~300 lines max) per logical unit |
 | Single commit at the end | All-or-nothing, no partial rollback | Commit after each logical unit — data, logic, API, tests |
 | Task without commit boundary | Teammate guesses the split | Plan must define commit units per task |
+| Teammate creates own branch | Report shows commits on `feature/xxx` instead of `session/xxx` | Re-dispatch with explicit session branch instruction |
+| `git checkout -b` in repo | Other session's worktree on wrong branch | Always use `git branch` (no checkout) for session branch creation |
+| No session created before dispatch | Branches mixed between parallel sessions | Always run Phase 2.5 before Phase 3 |
+| Teammate reports done with 0 commits | Worktree cleaned up, changes LOST | Verify commits on session branch before accepting report |
+| Teammate didn't checkout session branch | Commits on wrong branch or detached HEAD | Git workflow section must be FIRST in spawn prompt |

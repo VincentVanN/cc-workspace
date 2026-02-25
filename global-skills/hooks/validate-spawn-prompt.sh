@@ -67,6 +67,14 @@ if ! echo "$PROMPT" | grep -qiE '(escalat|STOP and report|STOP and escalate|repo
     WARNINGS+="- Missing escalation instruction. Include: 'If you hit an architectural decision NOT covered by the plan: STOP and escalate.'\n"
 fi
 
+# Check 7: Session branch instruction (if sessions exist)
+SESSIONS_DIR="${CLAUDE_PROJECT_DIR:-.}/.sessions"
+if [ -d "$SESSIONS_DIR" ] && ls "$SESSIONS_DIR"/*.json >/dev/null 2>&1; then
+    if ! echo "$PROMPT" | grep -qiE '(session/|session branch|ALREADY EXISTS.*branch)' 2>/dev/null; then
+        WARNINGS+="- Active sessions exist but no session branch found in spawn prompt. Include the session branch instruction.\n"
+    fi
+fi
+
 # Report — ALL checks are warnings only (v4.0)
 ISSUES=""
 [ -n "$BLOCKERS" ] && ISSUES+="$BLOCKERS"

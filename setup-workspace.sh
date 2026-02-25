@@ -99,6 +99,7 @@ fi
 mkdir -p "$ORCH_DIR/.claude/hooks"
 mkdir -p "$ORCH_DIR/plans"
 mkdir -p "$ORCH_DIR/templates"
+mkdir -p "$ORCH_DIR/.sessions"
 echo "Orchestrator structure created"
 
 # ===================================================
@@ -478,6 +479,7 @@ if [ ! -f "$ORCH_DIR/.gitignore" ]; then
 .claude/bash-commands.log
 .claude/worktrees/
 .claude/modified-files.log
+.sessions/
 plans/*.md
 !plans/_TEMPLATE.md
 !plans/service-profiles.md

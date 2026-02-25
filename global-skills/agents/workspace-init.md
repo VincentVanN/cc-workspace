@@ -39,9 +39,10 @@ Check silently (no questions to the user):
 | 4 | `./templates/workspace.template.md` exists | Flag |
 | 5 | `./templates/constitution.template.md` exists | Flag |
 | 6 | `./.claude/settings.json` exists and contains `AGENT_TEAMS` + `SUBAGENT_MODEL` | Regenerate if missing |
-| 7 | `./.claude/hooks/` contains all 11 hooks | List the missing ones |
+| 7 | `./.claude/hooks/` contains all 9 hooks | List the missing ones |
 | 8 | All hooks are executable (`chmod +x`) | Auto-fix |
 | 9 | `./CLAUDE.md` exists | Flag |
+| 10 | `./.sessions/` exists | Create the directory |
 
 ### Phase 2: Global diagnostic
 
@@ -83,10 +84,10 @@ Re-run: npx cc-workspace update --force
 4. Present a summary table to the user:
 
    ```
-   | Repo | Type | CLAUDE.md | .claude/ | Tests | Git clean |
-   |------|------|-----------|----------|-------|-----------|
-   | apidocker | Laravel | ✅ | ✅ hooks:3 | ✅ pest | ✅ |
-   | frontend  | Vue/Quasar | ✅ | ❌ | ✅ vitest | ⚠️ 12 files |
+   | Repo | Type | CLAUDE.md | Source Branch | .claude/ | Tests | Git clean |
+   |------|------|-----------|---------------|----------|-------|-----------|
+   | apidocker | Laravel | ✅ | preprod | ✅ hooks:3 | ✅ pest | ✅ |
+   | frontend  | Vue/Quasar | ✅ | preprod | ❌ | ✅ vitest | ⚠️ 12 files |
    ```
 
 5. Regenerate `./plans/service-profiles.md` with all collected info
@@ -119,6 +120,19 @@ If some repos don't have a `CLAUDE.md`:
 
 ### Phase 4: Interactive configuration
 
+**If `./workspace.md` is already configured** (no `[UNCONFIGURED]`):
+
+Check for missing columns or outdated info:
+1. If the service map is missing the `Source Branch` column:
+   - For each repo, detect the likely source branch:
+     - `git -C ../repo symbolic-ref refs/remotes/origin/HEAD 2>/dev/null` (strip refs/remotes/origin/)
+     - Or check for common branches: `preprod`, `develop`, `main`, `master`
+     - Or read from existing sections (e.g., "Branches de travail" notes)
+   - Present the proposed source branches and ask for confirmation
+   - Add the `Source Branch` column to the existing service map table
+2. If new repos are detected (not in the service map), propose adding them
+3. Update the orchestrator version in the header
+
 **If `./workspace.md` contains `[UNCONFIGURED]`:**
 
 1. Read `./templates/workspace.template.md` — this is the reference structure.
@@ -134,6 +148,10 @@ If some repos don't have a `CLAUDE.md`:
    **Service map section:**
    - Present detected repos with their auto-detected type
    - Pre-fill roles based on CLAUDE.md files read in Phase 3
+   - For each repo, ask the **Source Branch** (the integration branch from which
+     session branches will be created, e.g., `preprod`, `develop`, `main`).
+     Pre-fill by detecting the default branch: `git -C ../repo symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`
+     or fallback to `main`
    - Ask for confirmation + corrections
    - For each service: role in one sentence
 
@@ -175,7 +193,7 @@ Present a summary table:
 ╠═══════════════════════════════════════════════════════╣
 ║                                                         ║
 ║  Orchestrator structure        ✅ OK                    ║
-║  Hooks (11/11)                 ✅ OK                    ║
+║  Hooks (9/9)                   ✅ OK                    ║
 ║  Settings (Agent Teams)        ✅ OK                    ║
 ║  Global components             ✅ OK (or ⚠️ details)   ║
 ║  workspace.md                  ✅ Configured             ║

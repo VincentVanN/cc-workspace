@@ -19,7 +19,12 @@ Scope: ONLY inter-service alignment. Not code quality, not bugs.
 
 ## Setup
 
-Read `./workspace.md` for the service map.
+1. Read `./workspace.md` for the service map
+2. Check `./.sessions/` for the active session related to the current feature
+   - If a session exists, all checks MUST run against the **session branch**
+     (e.g., `session/feature-auth`), not against `main` or the default branch
+   - Use `git -C ../[repo] show session/{name}:[file]` to read files from the
+     session branch without checking it out
 
 ## Checks (parallel Explore subagents via Task, Haiku)
 

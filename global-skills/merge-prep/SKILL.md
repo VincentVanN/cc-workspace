@@ -18,9 +18,12 @@ You prepare the merge. You do NOT merge. You produce a merge readiness report.
 
 ## Phase 1: Collect branch info
 
-1. Read `./workspace.md` for the service map
+1. Read `./workspace.md` for the service map (including Source Branch column)
 2. Read `./plans/{feature-name}.md` for the active plan
-3. For each service with status ✅, identify the feature branch name
+3. Check `.sessions/` for the session associated with this feature
+   - If a session exists, use `session/{name}` as the branch name
+   - Use the session's `source_branch` as the merge target (not hardcoded `main`)
+4. For each service with status ✅, identify the session branch name
 
 ## Phase 2: Conflict detection
 
@@ -38,7 +41,7 @@ For lightweight read-only cross-checks, spawn Explore subagents (Task, Haiku).
 For each service, generate a PR summary:
 
 ```markdown
-### [service] — PR: feature/[name] → [target]
+### [service] — PR: session/[name] → [source_branch]
 
 **Changes**: [N] files modified, [M] files created, [D] files deleted
 
@@ -72,7 +75,7 @@ Write to `./plans/{feature-name}.md`:
 ### Merge readiness
 | Service | Branch | Up-to-date | Conflicts | Tests | Ready |
 |---------|--------|-----------|-----------|-------|-------|
-| [name] | feature/[x] | ✅/❌ | none/[list] | ✅/❌ | ✅/❌ |
+| [name] | session/[x] | ✅/❌ | none/[list] | ✅/❌ | ✅/❌ |
 
 ### Merge order
 1. [service] — [branch] → [target]

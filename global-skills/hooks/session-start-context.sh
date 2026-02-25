@@ -36,6 +36,24 @@ if [ -d "$PROJECT_DIR/plans" ]; then
     fi
 fi
 
+# Detect active sessions
+SESSIONS_DIR="$PROJECT_DIR/.sessions"
+if [ -d "$SESSIONS_DIR" ]; then
+    ACTIVE_SESSIONS=""
+    for session_file in "$SESSIONS_DIR"/*.json; do
+        [ -f "$session_file" ] || continue
+        SESSION_NAME=$(jq -r '.name // empty' "$session_file" 2>/dev/null) || continue
+        SESSION_STATUS=$(jq -r '.status // "unknown"' "$session_file" 2>/dev/null) || continue
+        [ "$SESSION_STATUS" != "active" ] && continue
+        SESSION_REPOS=$(jq -r '[.repos | keys[]] | join(", ")' "$session_file" 2>/dev/null) || SESSION_REPOS="?"
+        ACTIVE_SESSIONS+="  - $SESSION_NAME (repos: $SESSION_REPOS)\n"
+    done
+    if [ -n "$ACTIVE_SESSIONS" ]; then
+        OUTPUT+="[Session context] Active sessions:\n$ACTIVE_SESSIONS"
+        OUTPUT+="Session branches are already created. Teammates must use these branches.\n\n"
+    fi
+fi
+
 # Check workspace.md exists
 if [ ! -f "$PROJECT_DIR/workspace.md" ]; then
     OUTPUT+="[WARNING] No workspace.md found. Run setup-workspace.sh first.\n"
