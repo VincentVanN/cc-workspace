@@ -27,7 +27,7 @@ cd ~/projects/my-workspace
 npx cc-workspace init . "My Project"
 ```
 
-This creates an `orchestrator/` directory and installs 9 skills, 3 agents, 10 hooks, and 3 rules into `~/.claude/`.
+This creates an `orchestrator/` directory and installs 9 skills, 3 agents, 9 hooks, and 3 rules into `~/.claude/`.
 
 ### Configure (one time)
 
@@ -200,13 +200,13 @@ next one starts. The plan on disk is the source of truth.
 
 ---
 
-## The 10 hooks
+## The 9 hooks + 1 agent-level hook
 
-All hooks are **non-blocking** (exit 0 + warning). No hook blocks the session.
+All hooks in settings.json are **non-blocking** (exit 0 + warning). No hook blocks the session.
 
 | Hook | Event | Effect |
 |------|-------|--------|
-| **block-orchestrator-writes** | `PreToolUse` Write\|Edit\|MultiEdit | Blocks writes in repos, allows orchestrator/ |
+| **block-orchestrator-writes** | `PreToolUse` Write\|Edit\|MultiEdit | Blocks writes in repos, allows orchestrator/. **Agent frontmatter only** (team-lead) — not in settings.json, so teammates can write freely. |
 | **validate-spawn-prompt** | `PreToolUse` Teammate | Warning if missing context (rules, UX, tasks) |
 | **session-start-context** | `SessionStart` | Injects active plans + first session detection |
 | **user-prompt-guard** | `UserPromptSubmit` | Warning if code requested in a repo |
@@ -339,13 +339,15 @@ Both `init` and `update` are safe to re-run:
 
 ---
 
-## Changelog v4.1.0 -> v4.1.3
+## Changelog v4.1.0 -> v4.1.4
 
 | # | Fix | Detail |
 |---|-----|--------|
-| 1 | **Hook paths use `$CLAUDE_PROJECT_DIR`** | All 10 hooks in settings.json now resolve via `${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/` instead of relative `.claude/hooks/`. Fixes hook failures when subagents run from a different CWD (worktree in sibling repo). |
-| 2 | **stdout/stderr fix** | `task-completed-check.sh` and `teammate-idle-check.sh`: stdout ignored by Claude Code for these events — moved to stderr. |
-| 3 | **Removed `WorktreeCreate` hook** | `worktree-create-context.sh` caused worktree creation to fail — stdout was interpreted as the worktree path, creating ghost directories. Removed entirely (10 hooks instead of 11). |
+| 1 | **Hook paths use `$CLAUDE_PROJECT_DIR`** | All hooks in settings.json resolve via `${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/`. Fixes failures when subagents run from a worktree CWD. |
+| 2 | **stdout/stderr fix** | `task-completed-check.sh` and `teammate-idle-check.sh`: moved messages to stderr (stdout ignored by Claude Code for these events). |
+| 3 | **Removed `WorktreeCreate` hook** | stdout was interpreted as worktree path, creating ghost directories. Removed. |
+| 4 | **`block-orchestrator-writes` moved to agent frontmatter** | Was in settings.json → inherited by teammates, blocking their writes in worktrees. Now only in team-lead frontmatter. |
+| 5 | **`track-file-modifications` scoped** | Skips when `CLAUDE_PROJECT_DIR` is unset (teammate worktree). No more parasitic log files in worktrees. |
 
 ---
 

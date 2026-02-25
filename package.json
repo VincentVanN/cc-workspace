@@ -1,6 +1,6 @@
 {
   "name": "cc-workspace",
-  "version": "4.1.3",
+  "version": "4.1.4",
   "description": "Claude Code multi-workspace orchestrator — skills, hooks, agents, and templates for multi-service projects",
   "bin": {
     "cc-workspace": "./bin/cli.js"

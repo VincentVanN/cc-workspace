@@ -222,7 +222,9 @@ function generateSettings(orchDir) {
     },
     hooks: {
       PreToolUse: [
-        withMatcher("Write|Edit|MultiEdit", "block-orchestrator-writes.sh", 5),
+        // block-orchestrator-writes.sh is NOT here — it's in team-lead agent
+        // frontmatter only. Putting it in settings.json would block teammates
+        // from writing in their worktrees.
         withMatcher("Teammate", "validate-spawn-prompt.sh", 5)
       ],
       SessionStart: [
@@ -465,12 +467,16 @@ function updateLocal() {
   // ── Hooks (always overwrite — security critical) ──
   const hooksDir = path.join(orchDir, ".claude", "hooks");
   if (fs.existsSync(hooksDir)) {
-    generateBlockHook(hooksDir);
-    count++;
+    // Clean obsolete hooks before copying new ones
+    const obsoleteHooks = ["block-orchestrator-writes.sh", "worktree-create-context.sh", "verify-cycle-complete.sh"];
+    for (const f of obsoleteHooks) {
+      const fp = path.join(hooksDir, f);
+      if (fs.existsSync(fp)) fs.unlinkSync(fp);
+    }
     const hooksSrc = path.join(SKILLS_DIR, "hooks");
     if (fs.existsSync(hooksSrc)) {
       for (const f of fs.readdirSync(hooksSrc)) {
-        if (!f.endsWith(".sh") || f === "verify-cycle-complete.sh") continue;
+        if (!f.endsWith(".sh")) continue;
         copyFile(path.join(hooksSrc, f), path.join(hooksDir, f));
         fs.chmodSync(path.join(hooksDir, f), 0o755);
         count++;
@@ -572,12 +578,11 @@ function setupWorkspace(workspacePath, projectName) {
   // ── Hooks ──
   step("Installing hooks");
   const hooksDir = path.join(orchDir, ".claude", "hooks");
-  generateBlockHook(hooksDir);
   const hooksSrc = path.join(SKILLS_DIR, "hooks");
-  let hookCount = 1;
+  let hookCount = 0;
   if (fs.existsSync(hooksSrc)) {
     for (const f of fs.readdirSync(hooksSrc)) {
-      if (!f.endsWith(".sh") || f === "verify-cycle-complete.sh") continue;
+      if (!f.endsWith(".sh")) continue;
       copyFile(path.join(hooksSrc, f), path.join(hooksDir, f));
       fs.chmodSync(path.join(hooksDir, f), 0o755);
       hookCount++;
