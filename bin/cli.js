@@ -225,8 +225,10 @@ function generateSettings(orchDir) {
         // block-orchestrator-writes.sh is NOT here — it's in team-lead agent
         // frontmatter only. Putting it in settings.json would block teammates
         // from writing in their worktrees.
-        withMatcher("Teammate", "validate-spawn-prompt.sh", 5),
-        withMatcher("Bash", "guard-session-checkout.sh", 5)
+        // guard-session-checkout.sh is NOT here — it's in implementer agent
+        // frontmatter only. team-lead doesn't have Bash, and teammates don't
+        // inherit orchestrator hooks.
+        withMatcher("Teammate", "validate-spawn-prompt.sh", 5)
       ],
       SessionStart: [
         withoutMatcher("session-start-context.sh", 10)
@@ -417,7 +419,7 @@ function updateLocal() {
   const hooksDir = path.join(orchDir, ".claude", "hooks");
   if (fs.existsSync(hooksDir)) {
     // Clean obsolete hooks before copying new ones
-    const obsoleteHooks = ["block-orchestrator-writes.sh", "worktree-create-context.sh", "verify-cycle-complete.sh"];
+    const obsoleteHooks = ["block-orchestrator-writes.sh", "worktree-create-context.sh", "verify-cycle-complete.sh", "guard-session-checkout.sh"];
     for (const f of obsoleteHooks) {
       const fp = path.join(hooksDir, f);
       if (fs.existsSync(fp)) fs.unlinkSync(fp);
