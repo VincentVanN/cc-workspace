@@ -825,6 +825,65 @@ switch (command) {
     break;
   }
 
+  case "uninstall": {
+    log(BANNER_SMALL);
+    step("Uninstalling global components");
+
+    const readline = require("readline");
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const ask = (q) => new Promise(r => rl.question(q, r));
+
+    (async () => {
+      const answer = await ask(
+        `  Remove all cc-workspace components from ${c.dim}~/.claude/${c.reset}? [y/N] `
+      );
+      if (answer.toLowerCase() !== "y") {
+        log(`  ${c.dim}Cancelled.${c.reset}\n`);
+        rl.close();
+        return;
+      }
+
+      // Skills
+      if (fs.existsSync(GLOBAL_SKILLS)) {
+        const skipDirs = new Set(["rules", "agents", "hooks", "templates"]);
+        const skillDirs = fs.readdirSync(SKILLS_DIR, { withFileTypes: true })
+          .filter(e => e.isDirectory() && !skipDirs.has(e.name))
+          .map(e => e.name);
+        let n = 0;
+        for (const name of skillDirs) {
+          const target = path.join(GLOBAL_SKILLS, name);
+          if (fs.existsSync(target)) { fs.rmSync(target, { recursive: true }); n++; }
+        }
+        ok(`${n} skills removed`);
+      }
+
+      // Rules
+      for (const f of ["context-hygiene.md", "model-routing.md"]) {
+        const fp = path.join(GLOBAL_RULES, f);
+        if (fs.existsSync(fp)) fs.unlinkSync(fp);
+      }
+      ok("Rules removed");
+
+      // Agents
+      for (const f of ["team-lead.md", "implementer.md", "workspace-init.md", "e2e-validator.md"]) {
+        const fp = path.join(GLOBAL_AGENTS, f);
+        if (fs.existsSync(fp)) fs.unlinkSync(fp);
+      }
+      ok("Agents removed");
+
+      // Version file
+      if (fs.existsSync(VERSION_FILE)) fs.unlinkSync(VERSION_FILE);
+      ok("Version tracking removed");
+
+      log("");
+      log(`  ${c.green}${c.bold}Uninstall complete.${c.reset}`);
+      log(`  ${c.dim}Local orchestrator/ directories are preserved — remove them manually if needed.${c.reset}`);
+      log("");
+      rl.close();
+    })();
+    break;
+  }
+
   case "version":
   case "--version":
   case "-v": {
@@ -863,6 +922,10 @@ switch (command) {
     log("");
     log(`    ${c.cyan}npx cc-workspace session close${c.reset} ${c.dim}<name>${c.reset}`);
     log(`      Interactive close: create PRs, delete branches, clean up.`);
+    log("");
+    log(`    ${c.cyan}npx cc-workspace uninstall${c.reset}`);
+    log(`      Remove all global components from ~/.claude/ (interactive).`);
+    log(`      Local orchestrator/ directories are preserved.`);
     log("");
     log(`    ${c.cyan}npx cc-workspace version${c.reset}`);
     log(`      Show package and installed versions.`);

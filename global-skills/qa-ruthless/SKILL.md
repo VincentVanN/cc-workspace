@@ -42,7 +42,8 @@ Spawn one teammate per service impacted. All run in parallel via Agent Teams.
 
 Include in spawn prompt: **full constitution (all rules from constitution.md)**, plan context, then these steps:
 1. Run test suite — report pass/fail with details
-2. Use the **LSP tool** (go-to-definition, find-references) to trace call chains
+2. Use the **LSP tool** (go-to-definition, find-references) to trace call chains.
+   If LSP is unavailable, fall back to Grep + Glob for tracing references manually.
 3. **Constitution check**: multi-tenant scoping, secrets, rollback, test coverage
 4. **Code quality**: missing validation, missing auth checks, N+1, error handling, race conditions
 5. **Dead code hunt**: unused imports, unreachable methods, abandoned feature flags
@@ -54,7 +55,8 @@ Include in spawn prompt: **full constitution (all rules from constitution.md)**,
 
 Include in spawn prompt: **full constitution (all rules from constitution.md)**, plan context, UX standards, then these steps:
 1. Run tests — report pass/fail
-2. Use the **LSP tool** for tracing component dependencies and store usage
+2. Use the **LSP tool** for tracing component dependencies and store usage.
+   If LSP is unavailable, fall back to Grep + Glob for tracing references manually.
 3. **UX audit** on every new/modified component: 4 states (skeleton not spinner, empty+CTA, error+retry, smooth success), responsive, a11y, interactions (debounce, optimistic, confirmation), forms (inline validation, error messages, preserve data)
 4. **Constitution check**: data precision, feedback <200ms
 5. **Code quality**: TypeScript `any`, unsafe `as`, infinite loops, XSS via v-html

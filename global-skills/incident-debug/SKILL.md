@@ -33,8 +33,8 @@ If unclear, investigate all layers.
 ## Phase 2: Investigate (parallel)
 
 Spawn investigators via Agent Teams (Teammate tool):
-- **API/Backend**: full Sonnet teammate with write-capable investigation. Use the **LSP tool** (go-to-definition, find-references) to trace error call chains
-- **Frontend, Gateway, Infra, Auth**: lightweight Explore subagents (Task, Haiku) for read-only scan. Use LSP tool where available for tracing
+- **API/Backend**: full Sonnet teammate with write-capable investigation. Use the **LSP tool** (go-to-definition, find-references) to trace error call chains. If LSP is unavailable, fall back to Grep + Glob for tracing references manually.
+- **Frontend, Gateway, Infra, Auth**: lightweight Explore subagents (Task, Haiku) for read-only scan. Use LSP tool where available for tracing, or Grep + Glob as fallback.
 
 Multiple teammates can share findings and challenge each other's hypotheses.
 This adversarial pattern finds root causes faster than sequential investigation.

@@ -208,6 +208,36 @@ The orchestrator (Opus) never touches repo code. It clarifies the need,
 writes a plan in markdown, then sends teammates (Sonnet) to work in
 parallel in each repo via Agent Teams.
 
+### Architecture
+
+```mermaid
+graph LR
+    USER([You]) <-->|clarify\nplan\nreview| TL
+
+    subgraph "orchestrator/"
+        TL["Team Lead\n(Opus 4.6)"]
+        PLANS["plans/*.md"]
+        TL -->|writes| PLANS
+    end
+
+    TL -->|spawn| IMP1["Implementer\n(Sonnet)"]
+    TL -->|spawn| IMP2["Implementer\n(Sonnet)"]
+    TL -->|spawn| QA["QA Ruthless\n(Sonnet)"]
+    TL -.->|scan| EXP["Explorer\n(Haiku)"]
+
+    subgraph "/tmp/ worktrees"
+        IMP1 -->|commit| WT1["repo-api\nsession/feat"]
+        IMP2 -->|commit| WT2["repo-front\nsession/feat"]
+    end
+
+    style TL fill:#6c5ce7,color:#fff
+    style IMP1 fill:#0d6efd,color:#fff
+    style IMP2 fill:#0d6efd,color:#fff
+    style QA fill:#e17055,color:#fff
+    style EXP fill:#636e72,color:#fff
+    style USER fill:#1a1a2e,color:#fff
+```
+
 ### Who does what
 
 | Role | Model | What it does |
@@ -229,6 +259,59 @@ parallel in each repo via Agent Teams.
 | **D -- Single-service** | Bug or isolated feature in a single repo |
 
 ### The dispatch-feature workflow (Mode A)
+
+```mermaid
+flowchart TD
+    START([User describes feature]) --> CLARIFY
+
+    subgraph "Phase 0 — Clarify"
+        CLARIFY[Ask max 5 questions\nif ambiguity]
+    end
+
+    CLARIFY --> PLAN
+
+    subgraph "Phase 1-2 — Plan"
+        PLAN[Load context\nworkspace.md + constitution.md]
+        PLAN --> WRITE[Write plan in ./plans/\ncommit units + API contract]
+        WRITE --> APPROVE{User approves?}
+        APPROVE -- No --> WRITE
+    end
+
+    APPROVE -- Yes --> SESSION
+
+    subgraph "Phase 2.5 — Session"
+        SESSION[Create session branches\ngit branch session/name source]
+    end
+
+    SESSION --> W1
+
+    subgraph "Phase 3 — Dispatch"
+        W1["Wave 1: Producers\n(API, data, auth)"]
+        W1 -->|"contracts validated"| W2["Wave 2: Consumers\n(frontend, integrations)"]
+        W2 --> W3["Wave 3: Infra\n(gateway, config)"]
+
+        W1 -.- IMP1["Implementer\nCommit 1/3"]
+        W1 -.- IMP2["Implementer\nCommit 2/3"]
+        W1 -.- IMP3["Implementer\nCommit 3/3"]
+    end
+
+    W3 --> VERIFY
+
+    subgraph "Phase 4-5 — Verify"
+        VERIFY[cross-service-check\n+ qa-ruthless]
+    end
+
+    VERIFY --> REPORT([Final summary\n+ propose fixes])
+
+    style START fill:#1a1a2e,color:#fff
+    style REPORT fill:#1a1a2e,color:#fff
+    style APPROVE fill:#2d3436,color:#fff
+    style IMP1 fill:#0d6efd,color:#fff
+    style IMP2 fill:#0d6efd,color:#fff
+    style IMP3 fill:#0d6efd,color:#fff
+```
+
+**Text version:**
 
 ```
 CLARIFY  -> ask max 5 questions if ambiguity
@@ -515,6 +598,19 @@ With `--chrome`, the agent:
 - **Docker** (docker compose v2)
 - **Chrome** with chrome-devtools MCP server (for `--chrome` mode)
 - Completed plan (all tasks ✅) with session branches
+
+---
+
+## Changelog v4.5.1 -> v4.6.0
+
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | **Framework-agnostic UX standards** | `frontend-ux-standards.md` no longer hardcodes Quasar. Breakpoints, dialogs, and design system sections now reference the project's chosen library. Constitution overrides are documented. |
+| 2 | **Rollback protocol externalized** | Rollback and failed dispatch procedures moved from team-lead agent prompt (203→~170 lines) to `references/rollback-protocol.md`. Reduces base context load. |
+| 3 | **LSP fallback documented** | `qa-ruthless` and `incident-debug` now include explicit Grep+Glob fallback when LSP tool is unavailable. |
+| 4 | **`cc-workspace uninstall`** | New CLI command to cleanly remove all global components from `~/.claude/`. Interactive confirmation. Local orchestrator/ preserved. |
+| 5 | **workspace-init fixes** | Removed hardcoded version ("v4.0" → dynamic). Fixed skills count in diagnostic (9 → 13). |
+| 6 | **Mermaid diagrams in README** | Architecture overview and dispatch workflow now have visual flowcharts. Text fallback preserved. |
 
 ---
 

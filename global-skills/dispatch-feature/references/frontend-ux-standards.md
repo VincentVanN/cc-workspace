@@ -3,6 +3,11 @@
 This document is injected into every frontend teammate's prompt.
 It defines the minimum expected UX quality level.
 
+> **Project-specific overrides**: If `constitution.md` defines a design system
+> (e.g., MUI, Ant Design, Vuetify, Shadcn), those rules take precedence over
+> the framework-specific examples below. The principles (4 states, responsive,
+> a11y, forms) are universal — only the component names and breakpoints change.
+
 ## The 4 mandatory states
 
 Every component that displays data MUST implement:
@@ -33,8 +38,9 @@ Every component that displays data MUST implement:
 ## Responsive
 
 - **Mobile first**: build the mobile version first
-- Quasar breakpoints: `$breakpoint-xs` (0-599), `$breakpoint-sm` (600-1023),
-  `$breakpoint-md` (1024-1439), `$breakpoint-lg` (1440+)
+- Use the project's breakpoint system. Common defaults:
+  - xs (0-599), sm (600-1023), md (1024-1439), lg (1440+)
+  - Adapt to the actual framework (Quasar `$breakpoint-*`, Tailwind `sm:/md:/lg:`, MUI `useMediaQuery`, etc.)
 - Data tables on mobile: switch to card/list view, no horizontal scroll
 - Forms on mobile: stacked fields, appropriate native keyboard (inputmode)
 - Primary actions: accessible with the thumb (bottom zone of the screen)
@@ -45,7 +51,7 @@ Every component that displays data MUST implement:
 - **Optimistic updates** for quick actions (toggle, delete)
   with rollback on API error
 - **Confirmation** for destructive actions (delete, reset)
-  via Quasar dialog, not window.confirm()
+  via the project's dialog/modal component, never window.confirm()
 - **Transitions** between states: fade 150ms by default
 - **Disabled state** clear on buttons during processing (no double submit)
 
@@ -67,7 +73,7 @@ Every component that displays data MUST implement:
 
 ## Design system
 
-- Use native Quasar components first (QTable, QForm, QDialog...)
-- Do not reinvent a component that exists in Quasar
-- Colors, spacing, and typography follow the project's Quasar theme
-- Icons come from a single set (Material Icons or the configured one)
+- Use the project's component library first (e.g., Quasar, MUI, Ant Design, Vuetify, Shadcn)
+- Do not reinvent a component that exists in the chosen library
+- Colors, spacing, and typography follow the project's theme/design tokens
+- Icons come from a single set (the one configured in the project)

@@ -13,7 +13,7 @@ maxTurns: 80
 
 # Workspace Init — Diagnostic & Configuration
 
-You are the initialization agent for the orchestrator workspace v4.0.
+You are the initialization agent for the orchestrator workspace.
 Your job: verify everything is in place, fix what can be fixed,
 and guide the user to configure what needs their input.
 
@@ -50,7 +50,7 @@ Check global components (read-only, no auto-fix):
 
 | # | Check | If missing |
 |---|-------|-----------|
-| 10 | `~/.claude/skills/` contains all 9 skills | List the missing ones |
+| 10 | `~/.claude/skills/` contains all 13 skills | List the missing ones |
 | 11 | `~/.claude/rules/` contains context-hygiene.md, model-routing.md | List the missing ones |
 | 12 | `~/.claude/agents/` contains team-lead.md, implementer.md, workspace-init.md | List the missing ones |
 
