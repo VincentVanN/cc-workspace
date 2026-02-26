@@ -1,15 +1,20 @@
-# Teammate Spawn Templates
+# Implementer Spawn Templates
 
 Reference file for dispatch-feature. Loaded on-demand, not at skill activation.
 
-> Teammates do NOT receive the constitution automatically. Every spawn template
-> below includes a "Constitution" section that you MUST fill with all rules from
-> your workspace's `constitution.md`.
+> Each implementer handles exactly ONE commit unit. The team-lead spawns
+> implementers sequentially per service — one per commit unit in the plan.
+> Implementers do NOT receive the constitution automatically. Every spawn
+> template below includes a "Constitution" section that you MUST fill with
+> all rules from your workspace's `constitution.md`.
 
-## Backend/API teammate spawn template
+## Backend/API implementer spawn template
 
 ```
-You are teammate-[service]. Read the CLAUDE.md in your repo first.
+You are implementer for [service], handling Commit [N] of [total]: [commit title].
+Commits 1 to [N-1] are already on the session branch. Do NOT redo earlier work.
+
+Read the CLAUDE.md in your repo first.
 
 ## Git workflow (CRITICAL — read first)
 You are working in a temporary worktree. If you don't commit, YOUR WORK WILL BE LOST
@@ -26,53 +31,46 @@ You are already in an isolated worktree — all git commands run HERE, not in th
 3. If checkout fails with "did not match any file(s)":
    git fetch origin session/{session-name}
    git checkout session/{session-name}
-4. Commit AFTER EACH logical unit — do NOT wait until the end
-5. Before reporting back, verify ALL changes are committed:
-   git status  (must show: nothing to commit, working tree clean)
-6. If git status shows uncommitted changes when you're done: COMMIT THEM NOW
+4. Check existing commits: git log --oneline -5
 
 Branch `session/{session-name}` ALREADY EXISTS. Do NOT create other branches.
-Do NOT create branches named worktree-agent-* — use the session branch.
 
 ## Constitution (non-negotiable)
 [paste all rules from your workspace's constitution.md]
 
 ## API contract
-[paste the exact request/response shapes this service must implement]
+[paste the exact request/response shapes relevant to THIS commit]
 [note: frontend will build TypeScript interfaces from these shapes]
 
-## Your tasks
-[paste tasks from plan for this service]
+## Your single commit unit
+[paste ONLY the tasks for this specific commit unit — NOT the whole plan]
+
+## What previous commits already did
+[brief summary: "Commit 1 added models X, Y, Z. Commit 2 added services A, B."]
 
 ## Instructions
 1. Read the repo CLAUDE.md first — follow its conventions
-2. Implement the tasks above following the full constitution (all rules above)
+2. Implement ONLY the tasks above — do not touch code from earlier commits
 3. Use the LSP tool for code navigation (go-to-definition, find-references)
 4. Run the existing test suite — report pass/fail
 5. List any dead code created or exposed by your changes
-6. **Atomic commits** — follow the commit plan below
+6. If your changes exceed ~300 lines, split into multiple commits
+   (data → logic → API layer), each compilable
 7. If you hit an architectural decision NOT covered by the plan: STOP and
    report the dilemma instead of guessing
-8. **Before reporting back**: run `git status` — if anything is uncommitted, commit it NOW
-9. Report back: files created/modified, tests pass/fail, dead code found,
-   commits made (hash + message), blockers
-
-## Commit strategy (mandatory)
-- **One commit per logical unit** — each task in "Your tasks" = one commit minimum
-- **Max ~300 lines per commit** — if a task produces more, split it:
-  1. Data layer first (models, migrations, DTOs, repositories)
-  2. Business logic (use cases, services, validation)
-  3. API layer (controllers, routes, requests)
-  4. Tests for the above
-- **Commit message format**: `feat(domain): description` or `fix(domain): description`
-- **Each commit must compile and pass tests** — no broken intermediate states
-- **Commit as you go** — do NOT accumulate all changes for a single final commit
+8. COMMIT before reporting. Run: git status (must be clean), git log --oneline -3
+   (your commit must appear)
+9. Report back: commit hash + message, files created/modified, tests pass/fail,
+   dead code found, blockers
 ```
 
-## Frontend teammate spawn template
+## Frontend implementer spawn template
 
 ```
-You are teammate-[service]. Read the CLAUDE.md in your repo first.
+You are implementer for [service], handling Commit [N] of [total]: [commit title].
+Commits 1 to [N-1] are already on the session branch. Do NOT redo earlier work.
+
+Read the CLAUDE.md in your repo first.
 
 ## Git workflow (CRITICAL — read first)
 You are working in a temporary worktree. If you don't commit, YOUR WORK WILL BE LOST
@@ -89,56 +87,48 @@ You are already in an isolated worktree — all git commands run HERE, not in th
 3. If checkout fails with "did not match any file(s)":
    git fetch origin session/{session-name}
    git checkout session/{session-name}
-4. Commit AFTER EACH logical unit — do NOT wait until the end
-5. Before reporting back, verify ALL changes are committed:
-   git status  (must show: nothing to commit, working tree clean)
-6. If git status shows uncommitted changes when you're done: COMMIT THEM NOW
+4. Check existing commits: git log --oneline -5
 
 Branch `session/{session-name}` ALREADY EXISTS. Do NOT create other branches.
-Do NOT create branches named worktree-agent-* — use the session branch.
 
 ## Constitution (non-negotiable)
 [paste all rules from your workspace's constitution.md]
 
 ## UX Standards (non-negotiable)
-[paste full content of frontend-ux-standards.md]
+[paste full content of frontend-ux-standards.md — only if this commit involves UI components]
 
 ## API contract (TypeScript interfaces)
-[paste exact response shapes from wave 1 — teammate builds TS interfaces from these]
+[paste exact response shapes relevant to THIS commit]
 
-## Your tasks
-[paste tasks from plan for this service]
+## Your single commit unit
+[paste ONLY the tasks for this specific commit unit — NOT the whole plan]
+
+## What previous commits already did
+[brief summary: "Commit 1 added types/interfaces. Commit 2 added store/composables."]
 
 ## Instructions
 1. Read the repo CLAUDE.md first — follow its conventions
-2. Implement the tasks following the full constitution (all rules above) and UX standards
+2. Implement ONLY the tasks above — do not touch code from earlier commits
 3. Use the LSP tool for code navigation
-4. Every new component MUST handle 4 states: skeleton loader, empty+CTA, error+retry, success
+4. If this commit adds components: MUST handle 4 states (skeleton, empty+CTA, error+retry, success)
 5. Run the existing test suite — report pass/fail
 6. List any dead code (unused components, composables, store actions, CSS)
-7. **Atomic commits** — follow the commit plan below
+7. If your changes exceed ~300 lines, split into multiple commits
+   (types → store → components → pages), each compilable
 8. If you hit an architectural decision NOT covered by the plan: STOP and escalate
-9. **Before reporting back**: run `git status` — if anything is uncommitted, commit it NOW
-10. Report back: files created/modified, tests pass/fail, dead code found,
-    UX compliance, commits made (hash + message), blockers
-
-## Commit strategy (mandatory)
-- **One commit per logical unit** — each task = one commit minimum
-- **Max ~300 lines per commit** — if a task produces more, split it:
-  1. Types/interfaces and API service layer
-  2. Store/composables (state management)
-  3. Components (one commit per complex component)
-  4. Page integration + routing
-  5. Tests for the above
-- **Commit message format**: `feat(domain): description` or `fix(domain): description`
-- **Each commit must compile and pass tests** — no broken intermediate states
-- **Commit as you go** — do NOT accumulate all changes for a single final commit
+9. COMMIT before reporting. Run: git status (must be clean), git log --oneline -3
+   (your commit must appear)
+10. Report back: commit hash + message, files created/modified, tests pass/fail,
+    dead code found, UX compliance, blockers
 ```
 
-## Infra/Config teammate spawn template
+## Infra/Config implementer spawn template
 
 ```
-You are teammate-[service]. Read the CLAUDE.md in your repo first.
+You are implementer for [service], handling Commit [N] of [total]: [commit title].
+Commits 1 to [N-1] are already on the session branch. Do NOT redo earlier work.
+
+Read the CLAUDE.md in your repo first.
 
 ## Git workflow (CRITICAL — read first)
 You are working in a temporary worktree. If you don't commit, YOUR WORK WILL BE LOST
@@ -155,31 +145,29 @@ You are already in an isolated worktree — all git commands run HERE, not in th
 3. If checkout fails with "did not match any file(s)":
    git fetch origin session/{session-name}
    git checkout session/{session-name}
-4. Commit AFTER EACH logical unit — do NOT wait until the end
-5. Before reporting back, verify ALL changes are committed:
-   git status  (must show: nothing to commit, working tree clean)
-6. If git status shows uncommitted changes when you're done: COMMIT THEM NOW
+4. Check existing commits: git log --oneline -5
 
 Branch `session/{session-name}` ALREADY EXISTS. Do NOT create other branches.
-Do NOT create branches named worktree-agent-* — use the session branch.
 
 ## Constitution (non-negotiable)
 [paste all rules from your workspace's constitution.md]
 
-## Your tasks
-[paste tasks — typically: gateway routes, deployment configs, env vars]
+## Your single commit unit
+[paste ONLY the tasks for this commit — typically gateway routes, configs, env vars]
+
+## What previous commits already did
+[brief summary if applicable]
 
 ## Instructions
 1. Read the repo CLAUDE.md first
-2. Implement the configuration changes following the full constitution
+2. Implement ONLY the configuration changes for this commit
 3. Verify consistency with other services (env vars, routes, schemas)
-4. No code changes — only configuration
-5. **Atomic commits** — one commit per logical config change
-6. Commit message format: `chore(service): description`
-7. If you hit an architectural decision NOT covered by the plan: STOP and escalate
-8. **Before reporting back**: run `git status` — if anything is uncommitted, commit it NOW
-9. Report back: files modified, consistency check results,
-   commits made (hash + message), blockers
+4. No application code changes — only configuration
+5. Commit message format: `chore(service): description`
+6. If you hit an architectural decision NOT covered by the plan: STOP and escalate
+7. COMMIT before reporting. Run: git status (must be clean), git log --oneline -3
+   (your commit must appear)
+8. Report back: commit hash + message, files modified, consistency check results, blockers
 ```
 
 ## Explore/Haiku subagent template (read-only)
@@ -198,11 +186,10 @@ You are an explorer scanning [target]. Read-only — do NOT modify any files.
 
 ## Failure handling
 
-When a teammate reports back:
-- **Test regression or missing file** (recoverable): fix plan, re-dispatch ONCE
+When an implementer reports back:
+- **Test regression or missing file** (recoverable): fix commit unit description, re-dispatch ONCE
 - **Architectural decision not in plan** (blocking): STOP the wave, escalate to user
-- **No report after extended time**: send a status request via SendMessage
-- **Max re-dispatches per teammate per wave**: 2. After that, escalate to user.
-- **0 commits reported**: the teammate likely forgot to commit. Check the worktree
-  with a Task subagent before accepting the report. If changes exist uncommitted,
-  re-dispatch with explicit instruction to commit.
+- **No commit in report**: the implementer forgot to commit. Verify on session branch
+  with a Task subagent. If no commit exists, re-dispatch with emphasis on committing.
+- **Max re-dispatches per commit unit**: 2. After that, escalate to user.
+- **Giant commit (>400 lines)**: note in session log, consider splitting in future plans

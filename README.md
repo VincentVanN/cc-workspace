@@ -27,7 +27,7 @@ cd ~/projects/my-workspace
 npx cc-workspace init . "My Project"
 ```
 
-This creates an `orchestrator/` directory and installs 9 skills, 3 agents, 9 hooks, and 3 rules into `~/.claude/`.
+This creates an `orchestrator/` directory and installs 10 skills, 4 agents, 9 hooks, and 3 rules into `~/.claude/`.
 
 ### Configure (one time)
 
@@ -47,7 +47,8 @@ The init agent will:
 
 ```bash
 cd orchestrator/
-claude --agent team-lead
+claude --agent team-lead          # orchestration sessions
+claude --agent e2e-validator      # E2E validation (beta)
 ```
 
 The team-lead offers 4 modes:
@@ -68,7 +69,7 @@ npx cc-workspace update
 Updates all components if the package version is newer:
 - **Global**: skills, rules, agents in `~/.claude/`
 - **Local** (if `orchestrator/` found): hooks, settings.json, CLAUDE.md, templates, _TEMPLATE.md
-- **Never overwritten**: workspace.md, constitution.md, plans/
+- **Never overwritten**: workspace.md, constitution.md, plans/, e2e/
 
 ### Diagnostic
 
@@ -95,6 +96,15 @@ my-workspace/
 │   ├── workspace.md                 <- filled by workspace-init
 │   ├── constitution.md              <- filled by workspace-init
 │   ├── .sessions/                   <- session state (gitignored, created per session)
+│   ├── e2e/                         <- E2E test environment (beta)
+│   │   ├── e2e-config.md            <- agent memory (generated at first boot)
+│   │   ├── docker-compose.e2e.yml   <- generated at first boot
+│   │   ├── tests/                   <- headless API test scripts
+│   │   ├── chrome/
+│   │   │   ├── scenarios/           <- Chrome test flows per plan
+│   │   │   ├── screenshots/         <- evidence
+│   │   │   └── gifs/                <- recorded flows
+│   │   └── reports/                 <- per-plan E2E reports
 │   ├── templates/
 │   │   ├── workspace.template.md
 │   │   ├── constitution.template.md
@@ -198,6 +208,7 @@ parallel in each repo via Agent Teams.
 | **Teammates** | Sonnet 4.6 | Implement in an isolated worktree, test, commit. |
 | **Explorers** | Haiku | Read-only. Scan, verify consistency. |
 | **QA** | Sonnet 4.6 | Hostile mode. Min 3 problems found per service. |
+| **E2E Validator** | Sonnet 4.6 | Containers + Chrome browser testing (beta). |
 
 ### The 4 session modes
 
@@ -235,7 +246,7 @@ Protection layers:
 
 ---
 
-## The 9 skills
+## The 10 skills
 
 | Skill | Role | Trigger |
 |-------|------|---------|
@@ -248,19 +259,21 @@ Protection layers:
 | **cycle-retrospective** | Post-cycle learning (Haiku) | "Retro", "retrospective" |
 | **refresh-profiles** | Re-scan repo CLAUDE.md files (Haiku) | "Refresh profiles" |
 | **bootstrap-repo** | Generate a CLAUDE.md (Haiku) | "Bootstrap", "init CLAUDE.md" |
+| **e2e-validator** | E2E validation: containers + Chrome (beta) | `claude --agent e2e-validator` |
 
 All use `context: fork` — a skill's result is not in context when the
 next one starts. The plan on disk is the source of truth.
 
 ---
 
-## The 3 agents
+## The 4 agents
 
 | Agent | Model | Usage |
 |-------|-------|-------|
 | **team-lead** | Opus 4.6 | `claude --agent team-lead` — multi-service orchestration |
 | **workspace-init** | Sonnet 4.6 | `claude --agent workspace-init` — diagnostic + initial config |
 | **implementer** | Sonnet 4.6 | Task subagent with `isolation: worktree` — isolated implementation |
+| **e2e-validator** | Sonnet 4.6 | `claude --agent e2e-validator` — E2E validation with containers + Chrome (beta) |
 
 ---
 
@@ -385,9 +398,14 @@ cc-workspace/
     ├── cycle-retrospective/SKILL.md
     ├── refresh-profiles/SKILL.md
     ├── bootstrap-repo/SKILL.md
+    ├── e2e-validator/
+    │   └── references/
+    │       ├── container-strategies.md
+    │       ├── test-frameworks.md
+    │       └── scenario-extraction.md
     ├── hooks/                         <- 11 scripts (warning-only)
     ├── rules/                         <- 3 rules
-    └── agents/                        <- 3 agents (team-lead, implementer, workspace-init)
+    └── agents/                        <- 4 agents (team-lead, implementer, workspace-init, e2e-validator)
 ```
 
 ---
@@ -395,11 +413,92 @@ cc-workspace/
 ## Idempotence
 
 Both `init` and `update` are safe to re-run:
-- **Never overwritten**: `workspace.md`, `constitution.md`, `plans/*.md` (user content)
+- **Never overwritten**: `workspace.md`, `constitution.md`, `plans/*.md`, `e2e/` (user content)
 - **Always regenerated**: `settings.json`, `block-orchestrator-writes.sh` (security), `CLAUDE.md`, `_TEMPLATE.md`
 - **Always copied**: hooks, templates
 - **Always regenerated on init**: `service-profiles.md` (fresh scan)
 - **Global components**: only updated if the version is newer (or `--force`)
+
+---
+
+## E2E Validator (beta)
+
+A dedicated agent that validates completed plans by running services in containers
+and testing scenarios — including Chrome browser-driven UI tests.
+
+```bash
+cd orchestrator/
+claude --agent e2e-validator
+```
+
+### First boot — setup
+
+On first boot (no `e2e/e2e-config.md`), the agent:
+1. Reads `workspace.md` for repos and stacks
+2. Scans repos for existing `docker-compose.yml` and test frameworks
+3. If docker-compose exists: generates an overlay (`docker-compose.e2e.yml`)
+4. If not: builds the config interactively with you
+5. Writes `e2e/e2e-config.md` (its persistent memory)
+
+### Modes
+
+| Mode | Description |
+|------|-------------|
+| `validate <plan>` | Test a specific completed plan (API tests) |
+| `validate <plan> --chrome` | Same + Chrome browser UI tests |
+| `run-all` | Run all E2E tests (headless) |
+| `run-all --chrome` | Run all E2E tests + Chrome |
+| `setup` | Re-run first boot setup |
+
+Add `--fix` to any mode to dispatch teammates for fixing failures.
+
+### How it works
+
+1. Creates `/tmp/` worktrees on session branches (from the plan)
+2. Starts services via `docker compose up`
+3. Waits for health checks
+4. Runs existing test suites + generates API scenario tests from the plan
+5. With `--chrome`: drives Chrome via chrome-devtools MCP (navigate, fill forms,
+   click, take screenshots, record GIFs, check network requests and console)
+6. Generates report with evidence (screenshots, GIFs, network traces)
+7. Tears down containers and worktrees
+
+### Chrome testing
+
+With `--chrome`, the agent:
+- Navigates the frontend in your real Chrome browser
+- Plays user scenarios extracted from the plan
+- Takes screenshots at each step as evidence
+- Records GIFs of complete flows
+- Checks the 4 mandatory UX states (loading, empty, error, success)
+- Tests responsive layouts (mobile viewport)
+- Verifies network requests match the API contract
+- Checks console for errors
+
+### Requirements
+
+- **Docker** (docker compose v2)
+- **Chrome** with chrome-devtools MCP server (for `--chrome` mode)
+- Completed plan (all tasks ✅) with session branches
+
+---
+
+## Changelog v4.3.0 -> v4.4.0
+
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | **E2E Validator agent (beta)** | New `e2e-validator` agent: validates completed plans by running services in containers. Supports headless API tests and Chrome browser-driven UI tests with screenshots and GIF recording. |
+| 2 | **Chrome testing mode** | `--chrome` flag drives the user's Chrome browser via chrome-devtools MCP. Navigates, fills forms, clicks, takes screenshots, records GIFs, checks network and console. |
+| 3 | **E2E directory structure** | `orchestrator/e2e/` created during init/update. Contains docker-compose overlay, test scripts, Chrome scenarios, screenshots, GIFs, and reports. Never overwritten by updates. |
+| 4 | **Container strategies** | Reference docs for overlay and standalone docker-compose patterns per stack (PHP, Node, Python, Go, Vue, React). |
+| 5 | **Scenario extraction** | Reference doc for extracting testable E2E scenarios from completed plans (API endpoints, Chrome flows, UX states). |
+| 6 | **5 modes** | setup, validate, validate --chrome, run-all, run-all --chrome. Optional --fix dispatches teammates. |
+
+---
+
+## Changelog v4.2.0 -> v4.3.0
+
+> Minor improvements and bug fixes.
 
 ---
 

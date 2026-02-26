@@ -63,19 +63,36 @@ Create `./plans/{feature-name}.md` using `./plans/_TEMPLATE.md`.
 Include: context, clarification answers, services impacted, dependency waves,
 detailed tasks per service, API contract (exact shapes), and autonomous choices if applicable.
 
-### Commit planning (mandatory)
+### Commit planning (mandatory — each commit unit = one implementer spawn)
 
-For EACH service, break tasks into **commit-sized units** (~300 lines max each):
+**CRITICAL**: Each commit unit in the plan becomes a separate `Task(implementer)` spawn.
+The team-lead dispatches them sequentially per service. Size them accordingly:
+- **Too granular** (10+ per service) = excessive spawns, slow, expensive
+- **Too coarse** (1 giant unit) = defeats atomic commit purpose
+- **Sweet spot**: 2-5 units per service, ~100-300 lines each
+
+Typical split for a standard feature:
 - **Commit 1**: Data layer — models, migrations, DTOs, repositories
 - **Commit 2**: Business logic — use cases, services, validation
 - **Commit 3**: API/UI layer — controllers, routes, components, pages
 - **Commit 4**: Tests for the above
+
+For a small fix: **1 single commit unit** (no unnecessary splitting).
+
+| Service complexity | Recommended commit units |
+|--------------------|--------------------------|
+| Hotfix / bug fix | 1 |
+| Small feature | 2-3 |
+| Standard feature | 3-5 |
+| Complex feature | 4-6 (max) |
 
 Each commit unit in the plan must:
 - Have a descriptive title (becomes the commit message)
 - List the specific tasks it covers
 - Estimate ~N files, ~N lines
 - Be independently compilable and testable
+- Be **self-contained enough for a fresh implementer** — an implementer that only sees
+  the previous commits and this unit's description must be able to deliver it
 
 The plan also includes a **progress tracker** table summarizing commits planned
 vs done per service, visible at a glance.
@@ -123,74 +140,93 @@ After plan approval and before dispatch:
 > **Why a Task subagent?** The team-lead has `disallowedTools: Bash`.
 > Branch creation requires shell access, so it must be delegated.
 
-## Phase 3: Spawn teammates (Agent Teams)
+## Phase 3: Dispatch — one implementer per commit unit
 
-Use the **Teammate** tool to spawn teammates. Each teammate is an independent
-Agent Teams session with its own context window.
+**CRITICAL**: You do NOT spawn one teammate per service. You spawn one
+`Task(implementer)` per **commit unit** in the plan. Each implementer handles
+exactly one commit, then dies. This guarantees every commit is made.
 
-### Teammate spawn template
+### Dispatch flow per service (sequential)
 
-For EVERY teammate, include in the spawn prompt:
-1. Project-specific rules from `workspace constitution.md` (translated to English)
-2. Their tasks from the plan
-3. API contract (if applicable)
-4. Instruction to read repo CLAUDE.md first
-5. Instruction to escalate architectural decisions not in the plan
-6. Session branch: `session/{name}` — tell the teammate this branch ALREADY EXISTS,
-   all commits go on it, they must NOT create other branches
+```
+For each service in the current wave:
+  For each commit unit (in order):
+    1. Spawn Task(implementer) with:
+       - This commit unit's tasks ONLY
+       - Constitution rules
+       - API contract (if relevant)
+       - Repo path + session branch
+       - Context: "Commits 1..N-1 are already on the branch"
+    2. Wait for implementer to return
+    3. Verify commit on session branch (Task subagent with Bash)
+    4. Update plan: mark commit unit ✅ or ❌
+    5. If ❌: re-dispatch (max 2 retries), then escalate
+    6. If ✅: proceed to next commit unit
+```
 
-See @references/spawn-templates.md for the full templates per service type
-(backend, frontend, infra, explore).
+**Cross-service parallelism**: Different services within the same wave can
+progress in parallel. Use parallel Task calls when possible.
 
-> **Constitution in spawn prompts**: Teammates do NOT receive the constitution
+### Implementer spawn prompt — include for EVERY implementer
+
+1. **Which commit unit** this is: "You are implementing Commit 3 of 4 for service api"
+2. **Tasks for this commit only** (NOT the whole plan)
+3. **Constitution rules** from constitution.md (translated to English)
+4. **API contract** (if this commit involves API endpoints)
+5. **Repo path** and **session branch**: `session/{name}`
+6. **Previous context**: "Commits 1-2 are already on the branch (data layer + business logic).
+   You handle Commit 3: API layer. Do NOT redo earlier work."
+7. Instruction to read repo CLAUDE.md first
+8. Instruction to escalate if hitting an architectural decision not in the plan
+
+See @references/spawn-templates.md for the full templates per service type.
+
+> **Constitution in spawn prompts**: Implementers do NOT receive the constitution
 > automatically. You MUST include ALL rules from constitution.md in every spawn prompt.
-> See @references/spawn-templates.md for templates.
 
-### Frontend teammates — extra context
+### Frontend implementers — extra context
 
-Before their tasks, inject:
+When the commit unit involves UI components, also include:
 - The UX standards (content of `references/frontend-ux-standards.md`)
 - The exact API contract shapes for TypeScript interfaces
 
-### API teammates — extra context
+### API implementers — extra context
 
-Inject:
+When the commit unit involves API endpoints:
 - The API contract they must implement (exact shapes)
 - Note that frontend will build types from these shapes
 
 ### Isolation
 
-**Agent Teams teammates** (Teammate tool) get automatic worktree isolation —
-no manual setup needed. Each teammate runs in its own git worktree.
+Each `Task(implementer)` creates its own worktree in `/tmp/`. The worktree is
+removed after the commit. The next implementer creates a fresh worktree and sees
+all previous commits on the session branch.
 
-**Task subagents** (Task tool, used for lightweight Explore/Haiku scans) do NOT
-get automatic isolation. This is fine because Explore subagents are read-only.
-If a Task subagent needs to write code, add `isolation: worktree` to its config.
-
-Never mix: one teammate per repo per wave. No two teammates editing the same repo.
+Never run two implementers on the same repo simultaneously — sequential only.
+Cross-service parallelism is fine.
 
 ### Wave execution
 
-1. Spawn all wave 1 teammates in parallel
-2. Wait for ALL wave 1 to report back
+1. For each service in wave 1: dispatch commit units sequentially (parallel across services)
+2. Wait for ALL services in wave 1 to complete ALL their commit units
 3. Collect wave 1 results, update the API contract if needed
-4. Spawn wave 2 teammates with validated contracts from wave 1
+4. Dispatch wave 2 commit units with validated contracts from wave 1
 5. Repeat for wave 3 if applicable
-6. Use **SendMessage** to clarify or redirect teammates mid-wave if needed
 
 ## Phase 4: Collect and update
 
-On each teammate report:
-1. Update `./plans/{feature-name}.md` — statuses ✅ or ❌ per commit unit
-2. Update the **progress tracker** table (commits done / planned)
-3. Note dead code found
-4. Verify commit count and sizes — flag if a teammate made a single giant commit
-4b. Verify commits are on the session branch (not on a rogue branch):
-    - Spawn a Task subagent (Bash): `git -C ../[repo] log session/{name} --oneline -5`
-    - If teammate committed on a different branch, flag it as a blocker
-5. If a teammate failed → analyze, correct plan, re-dispatch
-6. **Session log** entry: `[HH:MM] teammate-[service]: [status], [N] commits, [N] files, tests [pass/fail]`
-7. If current wave done → launch next wave
+After EACH implementer returns:
+1. **Verify the commit** — spawn a Task subagent (Bash):
+   `git -C ../[repo] log session/{name} --oneline -3`
+   → The new commit must appear. If not: re-dispatch this commit unit.
+2. Update `./plans/{feature-name}.md` — mark this commit unit ✅ or ❌
+3. Update the **progress tracker** table (commits done / planned)
+4. Note dead code found
+5. **Flag giant commits** — if >400 lines, note in session log
+6. **Session log** entry: `[HH:MM] impl-[service]-commit-[N]: [status], [hash], [N] files, tests [pass/fail]`
+7. If ❌ → analyze failure, correct the commit unit description, re-dispatch (max 2 retries)
+8. If all commit units for a service are ✅ → service complete
+9. If all services in current wave are complete → launch next wave
 
 ## Phase 5: Post-implementation
 
@@ -203,10 +239,12 @@ On each teammate report:
 
 For targeted fixes or single-repo work:
 1. Identify the ONE service to touch
-2. Skip waves — spawn a single teammate
+2. Skip waves — dispatch commit units sequentially (often just 1)
 3. No cross-service-check (unless user requests it)
 4. QA scoped to that service only
 5. Merge prep for that service only
+
+For simple fixes with 1 commit unit: one Task(implementer) — no overhead.
 
 > **Context note**: This skill runs with `context: fork`. After it completes,
 > its internal context is discarded. The plan file on disk is the source of truth.

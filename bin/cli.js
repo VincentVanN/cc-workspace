@@ -283,6 +283,7 @@ You clarify, plan, delegate, track.
 cd orchestrator/
 claude --agent workspace-init   # first time: diagnostic + config
 claude --agent team-lead         # work sessions
+claude --agent e2e-validator     # E2E validation of completed plans
 \`\`\`
 
 ## Initialization (workspace-init)
@@ -305,8 +306,10 @@ Run once. Idempotent — can be re-run to re-diagnose.
 - Service profiles: \`./plans/service-profiles.md\`
 - Active plans: \`./plans/*.md\`
 - Active sessions: \`./.sessions/*.json\`
+- E2E config: \`./e2e/e2e-config.md\`
+- E2E reports: \`./e2e/reports/\`
 
-## Skills (9)
+## Skills (10)
 - **dispatch-feature**: 4 modes, clarify → plan → waves → collect → verify
 - **qa-ruthless**: adversarial QA, min 3 findings per service
 - **cross-service-check**: inter-repo consistency
@@ -316,6 +319,7 @@ Run once. Idempotent — can be re-run to re-diagnose.
 - **cycle-retrospective**: post-cycle learning (haiku)
 - **refresh-profiles**: re-reads repo CLAUDE.md files (haiku)
 - **bootstrap-repo**: generates a CLAUDE.md for a repo (haiku)
+- **e2e-validator**: E2E validation of completed plans (beta) — containers + Chrome
 
 ## Rules
 1. No code in repos — delegate to teammates
@@ -333,6 +337,7 @@ Run once. Idempotent — can be re-run to re-diagnose.
 13. Retrospective cycle after each completed feature
 14. Session branches for parallel isolation — teammates use session/{name}, never create own branches
 15. Never \`git checkout -b\` in repos — use \`git branch\` (no checkout) to avoid disrupting parallel sessions
+16. E2E validation via \`claude --agent e2e-validator\` after plans are complete
 `;
 }
 
@@ -476,8 +481,19 @@ function updateLocal() {
     ok(".sessions/ created");
   }
 
-  // ── NEVER touch: workspace.md, constitution.md, plans/*.md, service-profiles.md ──
-  info(`${c.dim}workspace.md, constitution.md, plans/ — preserved${c.reset}`);
+  // ── e2e/ (create if missing — never overwrite existing) ──
+  const e2eDir = path.join(orchDir, "e2e");
+  if (!fs.existsSync(e2eDir)) {
+    mkdirp(path.join(e2eDir, "tests"));
+    mkdirp(path.join(e2eDir, "chrome", "scenarios"));
+    mkdirp(path.join(e2eDir, "chrome", "screenshots"));
+    mkdirp(path.join(e2eDir, "chrome", "gifs"));
+    mkdirp(path.join(e2eDir, "reports"));
+    ok("e2e/ directory created");
+  }
+
+  // ── NEVER touch: workspace.md, constitution.md, plans/*.md, e2e/ ──
+  info(`${c.dim}workspace.md, constitution.md, plans/, e2e/ — preserved${c.reset}`);
 
   return true;
 }
@@ -493,6 +509,11 @@ function setupWorkspace(workspacePath, projectName) {
   mkdirp(path.join(orchDir, "plans"));
   mkdirp(path.join(orchDir, "templates"));
   mkdirp(path.join(orchDir, ".sessions"));
+  mkdirp(path.join(orchDir, "e2e", "tests"));
+  mkdirp(path.join(orchDir, "e2e", "chrome", "scenarios"));
+  mkdirp(path.join(orchDir, "e2e", "chrome", "screenshots"));
+  mkdirp(path.join(orchDir, "e2e", "chrome", "gifs"));
+  mkdirp(path.join(orchDir, "e2e", "reports"));
   ok("Structure created");
 
   // ── Templates ──
@@ -575,7 +596,9 @@ function setupWorkspace(workspacePath, projectName) {
     fs.writeFileSync(gi, [
       ".claude/bash-commands.log", ".claude/worktrees/", ".claude/modified-files.log",
       ".sessions/",
-      "plans/*.md", "!plans/_TEMPLATE.md", "!plans/service-profiles.md", ""
+      "plans/*.md", "!plans/_TEMPLATE.md", "!plans/service-profiles.md",
+      "e2e/chrome/screenshots/", "e2e/chrome/gifs/", "e2e/reports/",
+      "e2e/docker-compose.e2e.yml", "e2e/e2e-config.md", ""
     ].join("\n"));
     ok(".gitignore");
   }
@@ -633,13 +656,14 @@ function setupWorkspace(workspacePath, projectName) {
   log(`  ${c.dim}Directory${c.reset}  ${orchDir}`);
   log(`  ${c.dim}Repos${c.reset}      ${repos.length} detected`);
   log(`  ${c.dim}Hooks${c.reset}      ${hookCount} scripts`);
-  log(`  ${c.dim}Skills${c.reset}     9 ${c.dim}(~/.claude/skills/)${c.reset}`);
+  log(`  ${c.dim}Skills${c.reset}     10 ${c.dim}(~/.claude/skills/)${c.reset}`);
   log("");
   log(`  ${c.bold}Next steps:${c.reset}`);
   log(`    ${c.cyan}cd orchestrator/${c.reset}`);
   log(`    ${c.cyan}claude --agent workspace-init${c.reset}   ${c.dim}# first time: diagnostic + config${c.reset}`);
   log(`    ${c.dim}  └─ type "go" to start the diagnostic${c.reset}`);
   log(`    ${c.cyan}claude --agent team-lead${c.reset}        ${c.dim}# orchestration sessions${c.reset}`);
+  log(`    ${c.cyan}claude --agent e2e-validator${c.reset}    ${c.dim}# E2E validation (beta)${c.reset}`);
   if (reposWithoutClaude.length > 0) {
     log("");
     warn(`${reposWithoutClaude.length} repo(s) without CLAUDE.md: ${c.bold}${reposWithoutClaude.join(", ")}${c.reset}`);
@@ -674,7 +698,7 @@ function doctor() {
   // Skills count
   if (fs.existsSync(GLOBAL_SKILLS)) {
     const skills = fs.readdirSync(GLOBAL_SKILLS, { withFileTypes: true }).filter(e => e.isDirectory());
-    check(`Skills (${skills.length}/9)`, skills.length >= 9, `only ${skills.length} found`);
+    check(`Skills (${skills.length}/10)`, skills.length >= 10, `only ${skills.length} found`);
   }
 
   // Rules
@@ -683,7 +707,7 @@ function doctor() {
   }
 
   // Agents
-  for (const a of ["team-lead.md", "implementer.md", "workspace-init.md"]) {
+  for (const a of ["team-lead.md", "implementer.md", "workspace-init.md", "e2e-validator.md"]) {
     check(`Agent: ${a}`, fs.existsSync(path.join(GLOBAL_AGENTS, a)), "missing");
   }
 
@@ -706,6 +730,7 @@ function doctor() {
     check("templates/", fs.existsSync(path.join(cwd, "templates")), "missing");
     check(".claude/hooks/", fs.existsSync(path.join(cwd, ".claude", "hooks")), "missing");
     check(".sessions/", fs.existsSync(path.join(cwd, ".sessions")), "missing — run: npx cc-workspace update");
+    check("e2e/", fs.existsSync(path.join(cwd, "e2e")), "missing — run: npx cc-workspace update");
     const configured = !fs.readFileSync(path.join(cwd, "workspace.md"), "utf8").includes("[UNCONFIGURED]");
     check("workspace.md configured", configured, "[UNCONFIGURED] — run: claude --agent workspace-init");
   } else if (hasOrch) {
@@ -842,6 +867,7 @@ switch (command) {
     log(`    ${c.cyan}claude --agent workspace-init${c.reset}   ${c.dim}# first time${c.reset}`);
     log(`    ${c.dim}  └─ type "go" to start the diagnostic${c.reset}`);
     log(`    ${c.cyan}claude --agent team-lead${c.reset}        ${c.dim}# work sessions${c.reset}`);
+    log(`    ${c.cyan}claude --agent e2e-validator${c.reset}    ${c.dim}# E2E validation (beta)${c.reset}`);
     log("");
     break;
   }

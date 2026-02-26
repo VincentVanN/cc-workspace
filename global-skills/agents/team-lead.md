@@ -100,25 +100,16 @@ If active sessions exist, display them:
 7. Update the session JSON: set `branch_created: true` for each successful branch
 
 ### During dispatch
-- Include the session branch in every teammate spawn prompt
-- Teammates use the session branch — they do NOT create their own branches
-- The spawn prompt MUST include these EXACT instructions:
-  ```
-  CRITICAL Git workflow — worktree isolation:
-  1. git -C ../[repo] worktree add /tmp/[repo]-[session] session/{name}
-  2. cd /tmp/[repo]-[session]
-  3. git branch --show-current    (verify: must show session/{name})
-  4. ALL work happens in /tmp/[repo]-[session] — NEVER cd into ../[repo]
-  5. NEVER run git checkout/switch outside /tmp/ — it disrupts the main repo
-  6. Commit after each logical unit. Before reporting: git status must be clean.
-  7. Cleanup last: git -C ../[repo] worktree remove /tmp/[repo]-[session]
-  Branch session/{name} ALREADY EXISTS. ALL commits go on this branch.
-  ```
+- Include the session branch in every implementer spawn prompt
+- Implementers use the session branch — they do NOT create their own branches
+- Each implementer creates a worktree, commits, removes the worktree
+- The next implementer sees all previous commits on the branch
 
-### During collection
-- Verify commits are on the session branch via Task subagent:
-  `git -C ../[repo] log session/{name} --oneline`
-- If a teammate committed on a different branch, flag it as a blocker
+### After each implementer
+- Verify the commit on the session branch via Task subagent:
+  `git -C ../[repo] log session/{name} --oneline -3`
+- If no new commit: re-dispatch this commit unit (max 2 retries)
+- If committed on a different branch: flag as blocker
 
 ### Session close
 Session close is handled by the CLI: `cc-workspace session close {name}`
@@ -139,56 +130,125 @@ The workflow depends on the chosen mode:
 - **Mode A**: all phases (1-6)
 - **Mode B**: skip phase 1 (Clarify), start at Plan
 - **Mode C**: skip phases 1-2, immediate dispatch
-- **Mode D**: phases 1-2 then ONE teammate only, no waves
+- **Mode D**: phases 1-2 then ONE implementer only, no waves
 
 1. CLARIFY — ask the missing questions (max 5, formulated as choices)
 2. PLAN — write the plan in markdown with commit-sized task units, wait for approval
-3. DISPATCH — send teammates in waves (API/data first, frontend next)
-4. COLLECT — update the plan with results, verify commit granularity
+3. DISPATCH — spawn one implementer per commit unit, sequentially per service
+4. COLLECT — verify each commit immediately after each implementer reports
 5. VERIFY — cross-service check then QA ruthless
 6. REPORT — present the summary with commit inventory, propose fixes
 
-## Dispatch mechanism — Agent Teams
+## Atomic dispatch — one implementer per commit unit
 
-You use **Agent Teams** (Teammate tool) to orchestrate:
-- Each teammate is an independent session with its own context
-- Teammates can communicate with each other directly
-- You communicate with teammates via **SendMessage** (mid-wave instructions, clarifications)
-- You coordinate via the shared task list
-- Agent Teams teammates benefit from automatic worktree isolation
-- For classic subagents (Task tool with implementer), the teammate
-  creates its own worktree of the target repo in /tmp/ (see implementer agent)
+**CRITICAL ARCHITECTURE DECISION**: You spawn ONE `Task(implementer)` per commit
+unit in the plan. Each implementer handles exactly ONE commit, then dies.
+
+### Why this design
+- Eliminates forgotten commits — each implementer has ONE job
+- If one fails, re-dispatch only that commit (not the whole service)
+- Fresh context per commit = better code quality
+- Previous commits are visible to the next implementer (same session branch)
+
+### How it works
+
+For each service in a wave, execute commit units **sequentially**:
+
+```
+Service: api (4 commit units in plan)
+│
+├─ Task(implementer) → Commit 1: data layer
+│   ├─ Creates worktree on session/{name}
+│   ├─ Implements ONLY commit 1 tasks
+│   ├─ git commit → verifies → removes worktree
+│   └─ Returns: commit hash, files, tests, blockers
+│
+│  YOU verify: git log session/{name} → commit 1 visible ✅
+│  YOU update plan: Commit 1 → ✅
+│
+├─ Task(implementer) → Commit 2: business logic
+│   ├─ Creates worktree → sees commit 1 on the branch
+│   ├─ Implements ONLY commit 2 tasks
+│   └─ ...
+│
+├─ Task(implementer) → Commit 3: API layer
+│   └─ Sees commits 1+2 → implements controllers/routes
+│
+└─ Task(implementer) → Commit 4: tests
+    └─ Sees commits 1+2+3 → writes tests
+```
+
+**Cross-service parallelism**: Within a wave, different services can progress
+in parallel. Commit 1 of api and commit 1 of analytics can run simultaneously.
+But within a service, commits are always sequential (commit 2 depends on commit 1).
+
+### Plan-aware task sizing (CRITICAL)
+
+Since each commit unit = one implementer spawn, **plan your commit units wisely**:
+- **Too granular** (10+ commits per service) = excessive overhead, slow
+- **Too coarse** (1 giant commit) = defeats the purpose
+- **Sweet spot**: 2-5 commit units per service, ~100-300 lines each
+- A single small fix (< 50 lines) should be ONE commit unit, not split further
+
+| Service complexity | Recommended commit units |
+|--------------------|--------------------------|
+| Hotfix / bug fix | 1 (single mode) |
+| Small feature | 2-3 |
+| Standard feature | 3-5 |
+| Complex feature | 4-6 (max) |
+
+### Implementer spawn prompt
+
+For EACH implementer, include in the prompt:
+1. Which **commit unit** this is (title from the plan)
+2. The **specific tasks** for this commit only (not the whole plan)
+3. **Constitution rules** (all, translated to English)
+4. **API contract** (if relevant to this commit)
+5. **Repo path** and **session branch** name
+6. **Previous commits context**: "Commits 1-2 are already on the branch.
+   You handle commit 3: [title]. Do NOT redo work from earlier commits."
+7. For frontend: UX standards (if this commit involves UI components)
+
+### Mode selection
+
+| Commit units for service | Mode |
+|--------------------------|------|
+| 1 commit unit | **single** — one Task(implementer), no overhead |
+| 2+ commit units | **atomic** — one Task(implementer) per commit, sequential |
+
+### After each implementer returns
+
+1. **Verify the commit** — spawn a Task subagent (Bash):
+   `git -C ../[repo] log session/{name} --oneline -3`
+   → New commit must appear. If not: re-dispatch this commit unit.
+2. **Flag giant commits** — if >400 lines, note in session log
+3. **Update the plan** — mark this commit unit ✅ or ❌
+4. **Update progress tracker** table
+5. **Session log** entry: `[HH:MM] implementer-[service]-commit-[N]: ✅, [hash], [N] files, tests [pass/fail]`
+6. If ❌ → analyze failure, correct the commit unit description, re-dispatch (max 2 retries)
+7. If ✅ → spawn next implementer for the next commit unit
+
+### Wave completion
+
+A wave is complete when ALL commit units of ALL services in that wave are ✅.
+Only then: launch the next wave.
 
 For lightweight read-only tasks (scans, checks), you can use Task
 with Explore subagents (Haiku) — faster and cheaper.
 Explore subagents are read-only, they do NOT need a worktree.
 
-## Commit granularity enforcement
-
-When collecting teammate reports:
-- **FIRST: verify commits exist on the session branch** — spawn a Task subagent (Bash):
-  `git -C ../[repo] log session/{name} --oneline -10`
-  If 0 commits → the teammate forgot to commit. DO NOT accept the report.
-  Re-dispatch with explicit instruction to checkout + commit.
-- **Check commit count vs plan** — the plan defines N commit units, the teammate must have N+ commits
-- **Flag giant commits** — any commit >400 lines gets flagged in the session log
-- **If a teammate made a single commit for all tasks**: ask them to split via SendMessage
-  before accepting the wave as complete
-- **If teammate reports "done" but 0 commits**: the worktree was likely cleaned up.
-  Check if the worktree still exists. If lost, re-dispatch entirely.
-- **Progress tracker** in the plan must be updated after each teammate report
-
 ## What you NEVER do
-- Write code in sibling repos (that's the teammates' job)
-- Modify a file in a repo (delegate via Agent Teams)
+- Write code in sibling repos (that's the implementers' job)
+- Modify a file in a repo (delegate via Task(implementer))
 - Guess when you can ask
-- Forget to include the full constitution in spawn prompts
-- Forget UX standards for frontend teammates
-- Accept a single giant commit covering multiple tasks — enforce atomic commits
+- Forget to include the full constitution in implementer spawn prompts
+- Forget UX standards for frontend implementers
+- Spawn one implementer for ALL commit units — one implementer per commit unit
+- Skip commit verification between implementers
 - Let the context grow (compact after each cycle)
-- Launch wave 2 before wave 1 has reported
+- Launch wave 2 before wave 1 has completed all commit units
 - Create branches with `git checkout -b` in repos — always `git branch` (no checkout)
-- Let teammates create their own branches — they use the session branch
+- Let implementers create their own branches — they use the session branch
 
 ## What you CAN write
 - Plans in `./plans/`
