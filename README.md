@@ -210,32 +210,24 @@ parallel in each repo via Agent Teams.
 
 ### Architecture
 
-```mermaid
-graph LR
-    USER([You]) <-->|clarify\nplan\nreview| TL
-
-    subgraph "orchestrator/"
-        TL["Team Lead\n(Opus 4.6)"]
-        PLANS["plans/*.md"]
-        TL -->|writes| PLANS
-    end
-
-    TL -->|spawn| IMP1["Implementer\n(Sonnet)"]
-    TL -->|spawn| IMP2["Implementer\n(Sonnet)"]
-    TL -->|spawn| QA["QA Ruthless\n(Sonnet)"]
-    TL -.->|scan| EXP["Explorer\n(Haiku)"]
-
-    subgraph "/tmp/ worktrees"
-        IMP1 -->|commit| WT1["repo-api\nsession/feat"]
-        IMP2 -->|commit| WT2["repo-front\nsession/feat"]
-    end
-
-    style TL fill:#6c5ce7,color:#fff
-    style IMP1 fill:#0d6efd,color:#fff
-    style IMP2 fill:#0d6efd,color:#fff
-    style QA fill:#e17055,color:#fff
-    style EXP fill:#636e72,color:#fff
-    style USER fill:#1a1a2e,color:#fff
+```
+                          orchestrator/
+                    ┌─────────────────────┐
+  You ◄──────────►  │  Team Lead (Opus)    │
+   clarify, plan,   │  writes plans/*.md   │
+   review            └────────┬────────────┘
+                              │ spawn
+              ┌───────────────┼───────────────┐
+              │               │               │
+              ▼               ▼               ▼
+     ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+     │ Implementer  │ │ Implementer  │ │  QA Ruthless  │
+     │  (Sonnet)    │ │  (Sonnet)    │ │  (Sonnet)     │
+     └──────┬───────┘ └──────┬───────┘ └──────────────┘
+            │ commit         │ commit
+            ▼                ▼               Explorer
+    /tmp/repo-api     /tmp/repo-front        (Haiku)
+    session/feat      session/feat          read-only
 ```
 
 ### Who does what
@@ -260,69 +252,50 @@ graph LR
 
 ### The dispatch-feature workflow (Mode A)
 
-```mermaid
-flowchart TD
-    START([User describes feature]) --> CLARIFY
-
-    subgraph "Phase 0 — Clarify"
-        CLARIFY[Ask max 5 questions\nif ambiguity]
-    end
-
-    CLARIFY --> PLAN
-
-    subgraph "Phase 1-2 — Plan"
-        PLAN[Load context\nworkspace.md + constitution.md]
-        PLAN --> WRITE[Write plan in ./plans/\ncommit units + API contract]
-        WRITE --> APPROVE{User approves?}
-        APPROVE -- No --> WRITE
-    end
-
-    APPROVE -- Yes --> SESSION
-
-    subgraph "Phase 2.5 — Session"
-        SESSION[Create session branches\ngit branch session/name source]
-    end
-
-    SESSION --> W1
-
-    subgraph "Phase 3 — Dispatch"
-        W1["Wave 1: Producers\n(API, data, auth)"]
-        W1 -->|"contracts validated"| W2["Wave 2: Consumers\n(frontend, integrations)"]
-        W2 --> W3["Wave 3: Infra\n(gateway, config)"]
-
-        W1 -.- IMP1["Implementer\nCommit 1/3"]
-        W1 -.- IMP2["Implementer\nCommit 2/3"]
-        W1 -.- IMP3["Implementer\nCommit 3/3"]
-    end
-
-    W3 --> VERIFY
-
-    subgraph "Phase 4-5 — Verify"
-        VERIFY[cross-service-check\n+ qa-ruthless]
-    end
-
-    VERIFY --> REPORT([Final summary\n+ propose fixes])
-
-    style START fill:#1a1a2e,color:#fff
-    style REPORT fill:#1a1a2e,color:#fff
-    style APPROVE fill:#2d3436,color:#fff
-    style IMP1 fill:#0d6efd,color:#fff
-    style IMP2 fill:#0d6efd,color:#fff
-    style IMP3 fill:#0d6efd,color:#fff
 ```
-
-**Text version:**
-
-```
-CLARIFY  -> ask max 5 questions if ambiguity
-PLAN     -> write the plan in ./plans/, wait for approval
-SESSION  -> create session branches in impacted repos (Phase 2.5)
-SPAWN    -> Wave 1: API/data in parallel
-           Wave 2: frontend with validated API contract
-           Wave 3: infra/config if applicable
-COLLECT  -> update the plan with results
-VERIFY   -> cross-service-check + qa-ruthless
-REPORT   -> final summary
+  User describes feature
+           │
+           ▼
+  ┌─── Phase 0: CLARIFY ───┐
+  │ Ask max 5 questions     │
+  │ if ambiguity            │
+  └────────┬────────────────┘
+           ▼
+  ┌─── Phase 1-2: PLAN ────┐
+  │ Load context            │
+  │ Write plan in ./plans/  │
+  │ Commit units + contract │
+  │ Wait for approval ◄─┐  │
+  │    │            No ──┘  │
+  └────┼────────────────────┘
+       │ Yes
+       ▼
+  ┌─── Phase 2.5: SESSION ─┐
+  │ git branch session/name │
+  │ in each impacted repo   │
+  └────────┬────────────────┘
+           ▼
+  ┌─── Phase 3: DISPATCH ──────────────────────────┐
+  │                                                 │
+  │  Wave 1: Producers (API, data, auth)            │
+  │    ├── Implementer → Commit 1/3                 │
+  │    ├── Implementer → Commit 2/3                 │
+  │    └── Implementer → Commit 3/3                 │
+  │           │ contracts validated                  │
+  │           ▼                                     │
+  │  Wave 2: Consumers (frontend, integrations)     │
+  │           │                                     │
+  │           ▼                                     │
+  │  Wave 3: Infra (gateway, config)                │
+  │                                                 │
+  └────────┬────────────────────────────────────────┘
+           ▼
+  ┌─── Phase 4-5: VERIFY ──┐
+  │ cross-service-check     │
+  │ + qa-ruthless            │
+  └────────┬────────────────┘
+           ▼
+  Final summary + propose fixes
 ```
 
 ### Security — path-aware writes
@@ -610,7 +583,7 @@ With `--chrome`, the agent:
 | 3 | **LSP fallback documented** | `qa-ruthless` and `incident-debug` now include explicit Grep+Glob fallback when LSP tool is unavailable. |
 | 4 | **`cc-workspace uninstall`** | New CLI command to cleanly remove all global components from `~/.claude/`. Interactive confirmation. Local orchestrator/ preserved. |
 | 5 | **workspace-init fixes** | Removed hardcoded version ("v4.0" → dynamic). Fixed skills count in diagnostic (9 → 13). |
-| 6 | **Mermaid diagrams in README** | Architecture overview and dispatch workflow now have visual flowcharts. Text fallback preserved. |
+| 6 | **ASCII diagrams in README** | Architecture overview and dispatch workflow now have visual diagrams (ASCII art, compatible with GitHub and npm). |
 
 ---
 
