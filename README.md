@@ -208,28 +208,6 @@ The orchestrator (Opus) never touches repo code. It clarifies the need,
 writes a plan in markdown, then sends teammates (Sonnet) to work in
 parallel in each repo via Agent Teams.
 
-### Architecture
-
-```
-                          orchestrator/
-                    ┌─────────────────────┐
-  You ◄──────────►  │  Team Lead (Opus)    │
-   clarify, plan,   │  writes plans/*.md   │
-   review            └────────┬────────────┘
-                              │ spawn
-              ┌───────────────┼───────────────┐
-              │               │               │
-              ▼               ▼               ▼
-     ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-     │ Implementer  │ │ Implementer  │ │  QA Ruthless  │
-     │  (Sonnet)    │ │  (Sonnet)    │ │  (Sonnet)     │
-     └──────┬───────┘ └──────┬───────┘ └──────────────┘
-            │ commit         │ commit
-            ▼                ▼               Explorer
-    /tmp/repo-api     /tmp/repo-front        (Haiku)
-    session/feat      session/feat          read-only
-```
-
 ### Who does what
 
 | Role | Model | What it does |
@@ -253,49 +231,15 @@ parallel in each repo via Agent Teams.
 ### The dispatch-feature workflow (Mode A)
 
 ```
-  User describes feature
-           │
-           ▼
-  ┌─── Phase 0: CLARIFY ───┐
-  │ Ask max 5 questions     │
-  │ if ambiguity            │
-  └────────┬────────────────┘
-           ▼
-  ┌─── Phase 1-2: PLAN ────┐
-  │ Load context            │
-  │ Write plan in ./plans/  │
-  │ Commit units + contract │
-  │ Wait for approval ◄─┐  │
-  │    │            No ──┘  │
-  └────┼────────────────────┘
-       │ Yes
-       ▼
-  ┌─── Phase 2.5: SESSION ─┐
-  │ git branch session/name │
-  │ in each impacted repo   │
-  └────────┬────────────────┘
-           ▼
-  ┌─── Phase 3: DISPATCH ──────────────────────────┐
-  │                                                 │
-  │  Wave 1: Producers (API, data, auth)            │
-  │    ├── Implementer → Commit 1/3                 │
-  │    ├── Implementer → Commit 2/3                 │
-  │    └── Implementer → Commit 3/3                 │
-  │           │ contracts validated                  │
-  │           ▼                                     │
-  │  Wave 2: Consumers (frontend, integrations)     │
-  │           │                                     │
-  │           ▼                                     │
-  │  Wave 3: Infra (gateway, config)                │
-  │                                                 │
-  └────────┬────────────────────────────────────────┘
-           ▼
-  ┌─── Phase 4-5: VERIFY ──┐
-  │ cross-service-check     │
-  │ + qa-ruthless            │
-  └────────┬────────────────┘
-           ▼
-  Final summary + propose fixes
+CLARIFY  -> ask max 5 questions if ambiguity
+PLAN     -> write the plan in ./plans/, wait for approval
+SESSION  -> create session branches in impacted repos (Phase 2.5)
+SPAWN    -> Wave 1: API/data in parallel
+           Wave 2: frontend with validated API contract
+           Wave 3: infra/config if applicable
+COLLECT  -> update the plan with results
+VERIFY   -> cross-service-check + qa-ruthless
+REPORT   -> final summary
 ```
 
 ### Security — path-aware writes
@@ -583,7 +527,6 @@ With `--chrome`, the agent:
 | 3 | **LSP fallback documented** | `qa-ruthless` and `incident-debug` now include explicit Grep+Glob fallback when LSP tool is unavailable. |
 | 4 | **`cc-workspace uninstall`** | New CLI command to cleanly remove all global components from `~/.claude/`. Interactive confirmation. Local orchestrator/ preserved. |
 | 5 | **workspace-init fixes** | Removed hardcoded version ("v4.0" → dynamic). Fixed skills count in diagnostic (9 → 13). |
-| 6 | **ASCII diagrams in README** | Architecture overview and dispatch workflow now have visual diagrams (ASCII art, compatible with GitHub and npm). |
 
 ---
 
