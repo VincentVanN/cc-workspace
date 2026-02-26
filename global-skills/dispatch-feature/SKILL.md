@@ -167,34 +167,32 @@ For each service in the current wave:
 **Cross-service parallelism**: Different services within the same wave can
 progress in parallel. Use parallel Task calls when possible.
 
-### Implementer spawn prompt — include for EVERY implementer
+### Implementer spawn prompt — context tiering
 
-1. **Which commit unit** this is: "You are implementing Commit 3 of 4 for service api"
-2. **Tasks for this commit only** (NOT the whole plan)
-3. **Constitution rules** from constitution.md (translated to English)
-4. **API contract** (if this commit involves API endpoints)
-5. **Repo path** and **session branch**: `session/{name}`
-6. **Previous context**: "Commits 1-2 are already on the branch (data layer + business logic).
-   You handle Commit 3: API layer. Do NOT redo earlier work."
-7. Instruction to read repo CLAUDE.md first
-8. Instruction to escalate if hitting an architectural decision not in the plan
+The implementer agent already knows its git workflow, commit protocol, and cleanup
+procedure. Do NOT repeat these in spawn prompts. Only provide specific values and context.
 
-See @references/spawn-templates.md for the full templates per service type.
+**Always include (Tier 1):**
+1. Which commit unit: "Commit N of M for service X"
+2. Tasks for this commit only (NOT the whole plan)
+3. Constitution rules from constitution.md (translated to English)
+4. Repo path + session branch: `session/{name}`
+5. Previous context: "Commits 1..N-1 are on the branch. Do NOT redo."
+
+**Conditional (Tier 2):**
+- **Frontend commits with UI**: UX standards (from `references/frontend-ux-standards.md`)
+- **API commits**: API contract shapes (exact request/response)
+- **Frontend commits**: API contract as TypeScript interfaces
+
+**Never inject (Tier 3 — already in repo CLAUDE.md or agent instructions):**
+- Anti-patterns list (implementer reads CLAUDE.md)
+- Git workflow procedure (implementer agent already knows)
+- Full workspace context (implementer doesn't need it)
+
+See @references/spawn-templates.md for templates per service type.
 
 > **Constitution in spawn prompts**: Implementers do NOT receive the constitution
 > automatically. You MUST include ALL rules from constitution.md in every spawn prompt.
-
-### Frontend implementers — extra context
-
-When the commit unit involves UI components, also include:
-- The UX standards (content of `references/frontend-ux-standards.md`)
-- The exact API contract shapes for TypeScript interfaces
-
-### API implementers — extra context
-
-When the commit unit involves API endpoints:
-- The API contract they must implement (exact shapes)
-- Note that frontend will build types from these shapes
 
 ### Isolation
 

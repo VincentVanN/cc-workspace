@@ -27,7 +27,7 @@ cd ~/projects/my-workspace
 npx cc-workspace init . "My Project"
 ```
 
-This creates an `orchestrator/` directory and installs 10 skills, 4 agents, 9 hooks, and 3 rules into `~/.claude/`.
+This creates an `orchestrator/` directory and installs 13 skills, 4 agents, 9 hooks, and 2 rules into `~/.claude/`.
 
 ### Configure (one time)
 
@@ -246,7 +246,7 @@ Protection layers:
 
 ---
 
-## The 10 skills
+## The 13 skills
 
 | Skill | Role | Trigger |
 |-------|------|---------|
@@ -260,6 +260,9 @@ Protection layers:
 | **refresh-profiles** | Re-scan repo CLAUDE.md files (Haiku) | "Refresh profiles" |
 | **bootstrap-repo** | Generate a CLAUDE.md (Haiku) | "Bootstrap", "init CLAUDE.md" |
 | **e2e-validator** | E2E validation: containers + Chrome (beta) | `claude --agent e2e-validator` |
+| **session** | List, status, close parallel sessions | `/session`, `/session status X` |
+| **doctor** | Full workspace diagnostic (Haiku) | `/doctor` |
+| **cleanup** | Remove orphan worktrees + stale sessions | `/cleanup` |
 
 All use `context: fork` — a skill's result is not in context when the
 next one starts. The plan on disk is the source of truth.
@@ -480,6 +483,22 @@ With `--chrome`, the agent:
 - **Docker** (docker compose v2)
 - **Chrome** with chrome-devtools MCP server (for `--chrome` mode)
 - Completed plan (all tasks ✅) with session branches
+
+---
+
+## Changelog v4.4.0 -> v4.5.0
+
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | **Agent prompt restructuring** | All agents now have a `CRITICAL — Non-negotiable rules` section at the top. Most important rules are front-loaded for better model adherence. Prompts reduced by ~25%. |
+| 2 | **Context tiering** | Spawn templates now use 3 tiers: Tier 1 (always inject), Tier 2 (conditional), Tier 3 (never — already in agent/CLAUDE.md). Reduces implementer context bloat. |
+| 3 | **Spawn template deduplication** | Git workflow instructions removed from spawn templates — the implementer agent already knows them. Only specific values (repo path, session branch) are injected. |
+| 4 | **Rollback protocol** | team-lead can now `git update-ref` to reset a corrupted session branch to the last known good commit, or recreate from source branch. |
+| 5 | **Failed dispatch tracking** | Plan template now includes a "Failed dispatches" section. After 2 retries, commit units are marked `❌ ESCALATED` and the wave stops for user input. |
+| 6 | **Worktree crash recovery** | SessionStart hook now cleans orphan `/tmp/` worktrees left by crashed implementers. Implementer can also reuse an existing worktree from a previous failed attempt. |
+| 7 | **Implementer maxTurns 50→60** | Buffer for complex commit units. Prevents context loss at boundary. |
+| 8 | **3 new slash commands** | `/session` (list, status, close sessions), `/doctor` (full diagnostic), `/cleanup` (orphan worktrees + stale sessions). Replaces `npx cc-workspace` CLI for in-session use. |
+| 9 | **13 skills** | Up from 10. New: session, doctor, cleanup. |
 
 ---
 

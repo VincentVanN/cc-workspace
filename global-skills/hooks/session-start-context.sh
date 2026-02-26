@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # session-start-context.sh
-# SessionStart hook: injects active plan context and repo status.
+# SessionStart hook: injects active plan context, repo status, and cleans orphan worktrees.
 # Stdout on exit 0 is added as context visible to Claude.
 set -euo pipefail
 
@@ -8,7 +8,39 @@ cat > /dev/null
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 OUTPUT=""
 
-# Find active plans (plans with pending ⏳ or in-progress 🔄 tasks)
+# ── Orphan worktree cleanup ──────────────────────────────────
+# Clean /tmp/ worktrees that were left behind by crashed implementers.
+# These are safe to remove: they're temporary by design.
+ORPHAN_COUNT=0
+for wt in /tmp/*-session-* /tmp/e2e-* 2>/dev/null; do
+    [ -d "$wt" ] || continue
+    # Check if the worktree is registered with any repo
+    REPO_FOUND=0
+    PARENT_DIR="$(cd "$PROJECT_DIR/.." 2>/dev/null && pwd)" || continue
+    for repo_dir in "$PARENT_DIR"/*/; do
+        [ -d "$repo_dir/.git" ] || continue
+        if git -C "$repo_dir" worktree list 2>/dev/null | grep -q "$wt"; then
+            # Worktree is registered — check if it's stale (no git lock, no recent activity)
+            if [ ! -f "$wt/.git" ]; then
+                # Not a valid worktree anymore — remove registration
+                git -C "$repo_dir" worktree remove "$wt" --force 2>/dev/null && ORPHAN_COUNT=$((ORPHAN_COUNT + 1))
+                REPO_FOUND=1
+                break
+            fi
+            REPO_FOUND=1
+            break
+        fi
+    done
+    if [ "$REPO_FOUND" -eq 0 ] && [ -d "$wt/.git" ] || [ -f "$wt/.git" ]; then
+        # Unregistered worktree directory — likely a crash remnant. Remove it.
+        rm -rf "$wt" 2>/dev/null && ORPHAN_COUNT=$((ORPHAN_COUNT + 1))
+    fi
+done
+if [ "$ORPHAN_COUNT" -gt 0 ]; then
+    OUTPUT+="[Cleanup] Removed $ORPHAN_COUNT orphan worktree(s) from /tmp/.\n"
+fi
+
+# ── Active plans ─────────────────────────────────────────────
 if [ -d "$PROJECT_DIR/plans" ]; then
     ACTIVE_PLANS=$(find "$PROJECT_DIR/plans" -name '*.md' \
         ! -name '_TEMPLATE.md' \
@@ -29,14 +61,13 @@ if [ -d "$PROJECT_DIR/plans" ]; then
         done <<< "$ACTIVE_PLANS"
         OUTPUT+="\nRead these plans to resume where you left off.\n"
 
-        # Export active plan name to Claude's environment if supported
         if [ -n "${CLAUDE_ENV_FILE:-}" ] && [ -n "$FIRST_PLAN" ]; then
             echo "ACTIVE_PLAN=$FIRST_PLAN" >> "$CLAUDE_ENV_FILE"
         fi
     fi
 fi
 
-# Detect active sessions
+# ── Active sessions ──────────────────────────────────────────
 SESSIONS_DIR="$PROJECT_DIR/.sessions"
 if [ -d "$SESSIONS_DIR" ]; then
     ACTIVE_SESSIONS=""
@@ -54,12 +85,12 @@ if [ -d "$SESSIONS_DIR" ]; then
     fi
 fi
 
-# Check workspace.md exists
+# ── Workspace check ──────────────────────────────────────────
 if [ ! -f "$PROJECT_DIR/workspace.md" ]; then
     OUTPUT+="[WARNING] No workspace.md found. Run setup-workspace.sh first.\n"
 fi
 
-# First-session detection
+# ── First-session detection ──────────────────────────────────
 if [ -f "$PROJECT_DIR/workspace.md" ]; then
     if grep -q '\[UNCONFIGURED\]' "$PROJECT_DIR/workspace.md" 2>/dev/null; then
         OUTPUT+="[FIRST SESSION] workspace.md is not yet configured. Run: claude --agent workspace-init\n"
@@ -77,7 +108,7 @@ if [ -f "$PROJECT_DIR/workspace.md" ]; then
     fi
 fi
 
-# Auto-discovery: detect new repos not in workspace.md
+# ── Auto-discovery: new repos ────────────────────────────────
 if [ -f "$PROJECT_DIR/workspace.md" ] && ! grep -q '\[UNCONFIGURED\]' "$PROJECT_DIR/workspace.md" 2>/dev/null; then
     PARENT_DIR="$(cd "$PROJECT_DIR/.." 2>/dev/null && pwd)"
     NEW_REPOS=""

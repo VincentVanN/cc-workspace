@@ -309,7 +309,7 @@ Run once. Idempotent — can be re-run to re-diagnose.
 - E2E config: \`./e2e/e2e-config.md\`
 - E2E reports: \`./e2e/reports/\`
 
-## Skills (10)
+## Skills (13)
 - **dispatch-feature**: 4 modes, clarify → plan → waves → collect → verify
 - **qa-ruthless**: adversarial QA, min 3 findings per service
 - **cross-service-check**: inter-repo consistency
@@ -320,6 +320,9 @@ Run once. Idempotent — can be re-run to re-diagnose.
 - **refresh-profiles**: re-reads repo CLAUDE.md files (haiku)
 - **bootstrap-repo**: generates a CLAUDE.md for a repo (haiku)
 - **e2e-validator**: E2E validation of completed plans (beta) — containers + Chrome
+- **/session**: list, status, close parallel sessions
+- **/doctor**: full workspace diagnostic
+- **/cleanup**: remove orphan worktrees + stale sessions
 
 ## Rules
 1. No code in repos — delegate to teammates
@@ -391,6 +394,9 @@ function planTemplateContent() {
 | Service | Commits planned | Commits done | Tests | Status |
 |---------|:-:|:-:|:-:|:-:|
 | | N | 0 | ⏳ | ⏳ |
+
+## Failed dispatches
+<!-- Commit units that failed 2+ times are recorded here for user review -->
 
 ## QA
 - ⏳ Cross-service check
@@ -656,7 +662,7 @@ function setupWorkspace(workspacePath, projectName) {
   log(`  ${c.dim}Directory${c.reset}  ${orchDir}`);
   log(`  ${c.dim}Repos${c.reset}      ${repos.length} detected`);
   log(`  ${c.dim}Hooks${c.reset}      ${hookCount} scripts`);
-  log(`  ${c.dim}Skills${c.reset}     10 ${c.dim}(~/.claude/skills/)${c.reset}`);
+  log(`  ${c.dim}Skills${c.reset}     13 ${c.dim}(~/.claude/skills/)${c.reset}`);
   log("");
   log(`  ${c.bold}Next steps:${c.reset}`);
   log(`    ${c.cyan}cd orchestrator/${c.reset}`);
@@ -698,7 +704,7 @@ function doctor() {
   // Skills count
   if (fs.existsSync(GLOBAL_SKILLS)) {
     const skills = fs.readdirSync(GLOBAL_SKILLS, { withFileTypes: true }).filter(e => e.isDirectory());
-    check(`Skills (${skills.length}/10)`, skills.length >= 10, `only ${skills.length} found`);
+    check(`Skills (${skills.length}/13)`, skills.length >= 13, `only ${skills.length} found`);
   }
 
   // Rules
