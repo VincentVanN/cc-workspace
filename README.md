@@ -74,7 +74,8 @@ Updates all components if the package version is newer:
 ### Diagnostic
 
 ```bash
-npx cc-workspace doctor
+npx cc-workspace doctor     # from terminal
+/doctor                      # from inside a Claude Code session
 ```
 
 Checks: installed version, skills, rules, agents, hooks, jq, orchestrator/ structure.
@@ -157,12 +158,20 @@ In `workspace.md`, add the `Source Branch` column to the service map:
 3. Teammates receive the session branch in their spawn prompt — they do NOT create their own branches
 4. PRs go from `session/{name}` → `source_branch` (never to main directly)
 
-### Session CLI commands
+### Session commands
 
+From terminal (CLI):
 ```bash
 cc-workspace session list                  # show active sessions + branches
 cc-workspace session status feature-auth   # commits per repo on session branch
 cc-workspace session close feature-auth    # interactive: create PRs, delete branches, clean up
+```
+
+From inside a Claude Code session (slash commands):
+```
+/session                          # list active sessions
+/session status feature-auth      # commits per repo
+/session close feature-auth       # interactive close
 ```
 
 `session close` asks for confirmation before every action (PR creation, branch deletion, JSON cleanup).
@@ -299,6 +308,23 @@ All hooks in settings.json are **non-blocking** (exit 0 + warning). No hook bloc
 
 ---
 
+## Slash commands (in-session)
+
+These skills can be invoked directly from a Claude Code session, replacing the CLI for common operations.
+
+| Command | CLI equivalent | What it does |
+|---------|---------------|--------------|
+| `/session` | `cc-workspace session list` | List active sessions with branches and commit counts |
+| `/session status X` | `cc-workspace session status X` | Detailed session view: commits, files changed |
+| `/session close X` | `cc-workspace session close X` | Interactive: create PRs, delete branches, cleanup |
+| `/doctor` | `cc-workspace doctor` | Full diagnostic of workspace installation |
+| `/cleanup` | _(no CLI equivalent)_ | Remove orphan worktrees, stale sessions, dangling containers |
+
+> These slash commands use `context: fork` — they don't pollute the orchestrator's context.
+> The CLI commands (`npx cc-workspace ...`) remain available for terminal use outside sessions.
+
+---
+
 ## The 3 templates
 
 | Template | Usage |
@@ -345,6 +371,8 @@ in every teammate spawn prompt (teammates don't receive it automatically).
 
 - `claude --resume` resumes the session with the team-lead agent
 - The SessionStart hook automatically injects active plans
+- Orphan worktrees in `/tmp/` are cleaned up automatically at session start
+- Run `/cleanup` to manually purge stale worktrees, sessions, and containers
 - The markdown plan on disk is the source of truth
 
 | Emoji | Status |
@@ -353,6 +381,7 @@ in every teammate spawn prompt (teammates don't receive it automatically).
 | 🔄 | IN PROGRESS |
 | ✅ | DONE |
 | ❌ | BLOCKED/FAILED |
+| ❌ ESCALATED | Failed 2+ times, wave stopped, waiting for user |
 
 ---
 
@@ -363,7 +392,7 @@ The package uses semver. The installed version is tracked in `~/.claude/.orchest
 ```bash
 npx cc-workspace version    # shows package and installed versions
 npx cc-workspace update     # updates if newer version
-npx cc-workspace doctor     # full diagnostic
+npx cc-workspace doctor     # full diagnostic (or /doctor in-session)
 ```
 
 On each `init` or `update`, the CLI compares versions:
@@ -406,8 +435,11 @@ cc-workspace/
     │       ├── container-strategies.md
     │       ├── test-frameworks.md
     │       └── scenario-extraction.md
-    ├── hooks/                         <- 11 scripts (warning-only)
-    ├── rules/                         <- 3 rules
+    ├── session/SKILL.md               <- /session slash command
+    ├── doctor/SKILL.md                <- /doctor slash command
+    ├── cleanup/SKILL.md               <- /cleanup slash command
+    ├── hooks/                         <- 9 scripts (warning-only)
+    ├── rules/                         <- 2 rules
     └── agents/                        <- 4 agents (team-lead, implementer, workspace-init, e2e-validator)
 ```
 
@@ -417,7 +449,7 @@ cc-workspace/
 
 Both `init` and `update` are safe to re-run:
 - **Never overwritten**: `workspace.md`, `constitution.md`, `plans/*.md`, `e2e/` (user content)
-- **Always regenerated**: `settings.json`, `block-orchestrator-writes.sh` (security), `CLAUDE.md`, `_TEMPLATE.md`
+- **Always regenerated**: `settings.json`, `CLAUDE.md`, `_TEMPLATE.md`
 - **Always copied**: hooks, templates
 - **Always regenerated on init**: `service-profiles.md` (fresh scan)
 - **Global components**: only updated if the version is newer (or `--force`)
