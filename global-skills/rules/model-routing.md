@@ -21,8 +21,24 @@ If you write code for a repo (not a markdown plan), you have failed — delegate
 | Orchestrator | **Opus 4.6** | `claude --agent team-lead` (frontmatter `model: opus`) |
 | Implementation teammates | **Sonnet 4.6** | `CLAUDE_CODE_SUBAGENT_MODEL=sonnet` |
 | QA investigators | **Sonnet 4.6** | Same |
-| Explorers / cross-checks | **Haiku** | `model: haiku` in skill/agent frontmatter |
-| Plan review | **Haiku** | `model: haiku` in skill frontmatter |
+| Data extractors / explorers | **Haiku** | Task subagents with `model: haiku` — raw data only, no reasoning |
+| Gatherers (cross-check, debug, retro) | **Haiku** | Task subagents — raw data extraction only |
+
+## Gather → Reason pattern
+
+Skills that need both data collection and analysis use a two-phase approach:
+
+1. **Gather (Haiku)** — Spawn parallel Explore subagents (Task, model: haiku) that extract
+   raw data: code snippets, type definitions, config values, log entries. They return
+   structured facts. They do NOT judge, compare, or conclude.
+
+2. **Reason (Opus)** — The skill itself (running as Opus via `context: fork`) receives
+   the raw data and performs all analysis: comparison, correlation, judgment, diagnosis,
+   and report writing.
+
+This pattern applies to: `cross-service-check`, `incident-debug`, `cycle-retrospective`.
+It does NOT apply to: `qa-ruthless` (QA investigators are Sonnet — they need to run tests
+and reason about code quality), `plan-review` (structural checklist, Haiku is sufficient).
 
 ## Custom agent `implementer`
 For Task subagents that need to write code in an isolated worktree,

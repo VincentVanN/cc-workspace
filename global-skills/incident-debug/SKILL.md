@@ -30,32 +30,38 @@ Parse the user's report for signals:
 
 If unclear, investigate all layers.
 
-## Phase 2: Investigate (parallel)
+## Phase 2: Collect evidence (parallel Haiku extractors)
 
-Spawn investigators via Agent Teams (Teammate tool):
-- **API/Backend**: full Sonnet teammate with write-capable investigation. Use the **LSP tool** (go-to-definition, find-references) to trace error call chains. If LSP is unavailable, fall back to Grep + Glob for tracing references manually.
-- **Frontend, Gateway, Infra, Auth**: lightweight Explore subagents (Task, Haiku) for read-only scan. Use LSP tool where available for tracing, or Grep + Glob as fallback.
+Spawn parallel Explore subagents (Task, model: haiku) per layer. Each one collects raw evidence — code snippets, log entries, config values, error messages — and returns them WITHOUT diagnosis.
 
-Multiple teammates can share findings and challenge each other's hypotheses.
-This adversarial pattern finds root causes faster than sequential investigation.
+Include this instruction in every collector prompt: "Collect RAW EVIDENCE only. Code snippets with file:line references. Do NOT diagnose or hypothesize. Do NOT say 'the problem is X'. Just return what you found."
 
-### LSP investigation patterns
+Use these patterns to guide collectors on WHERE to look (not to diagnose):
 
-Instruct investigators to use these specific LSP workflows:
+| Signal | Where to collect |
+|--------|-----------------|
+| HTTP 500 in controller | Use `go-to-definition` (or Grep+Glob fallback) to find controller method → service layer → repository/query. Return code snippets with file:line. |
+| Type mismatch frontend | Use `find-references` on the TypeScript interface → collect all usage sites. Return raw code. |
+| Auth loop / 401 | Find auth middleware and token validation logic. Return raw config and code snippets. |
+| N+1 query suspicion | Find the relationship method and all callers. Return raw code at each call site. |
+| Dead import / unused function | Use `find-references` → return reference count and locations. |
+| Unknown error class | Find the exception class definition and all catch blocks. Return raw code. |
 
-| Signal | LSP action |
-|--------|-----------|
-| HTTP 500 in controller | `go-to-definition` on the controller method → trace into service layer → trace into repository/query |
-| Type mismatch frontend | `find-references` on the TypeScript interface → verify all usages match the API shape |
-| Auth loop / 401 | `hover` on auth middleware → verify configuration → `find-references` on token validation |
-| N+1 query suspicion | `find-references` on the relationship method → check all callers for eager loading |
-| Dead import / unused function | `find-references` → if 0 references outside tests, flag as dead code |
-| Unknown error class | `go-to-definition` on the exception class → check parent hierarchy and catch blocks |
+### Per-layer collector prompts
 
-## Phase 3: Correlate
+- **API/Backend collector**: Find error handlers, relevant controller/service code, recent log patterns, middleware chain. Use Grep+Glob to trace the call chain from the entry point. Return: relevant code snippets with file:line, error handling logic, middleware order.
+- **Frontend collector**: Find component rendering logic, API call code, error boundaries, console error patterns. Return: component tree around the error, API call implementations, error handling code.
+- **Gateway collector** (if applicable): Extract route config, upstream definitions, timeout settings. Return raw config.
+- **Auth collector** (if applicable): Extract token validation logic, middleware config, redirect URIs. Return raw code snippets.
+- **Infra collector** (if applicable): Extract container configs, health checks, resource limits, recent deployment changes. Return raw config.
 
-Build request flow timeline with ✅/❌ markers.
-Cross-reference findings between layers.
+## Phase 3: Diagnose (Opus reasoning)
+
+After all collectors return, YOU (the skill) correlate the evidence:
+- Build the request flow timeline from the collected code and config
+- Cross-reference findings between layers to identify where the chain breaks
+- Identify the root cause based on the evidence — this is deep reasoning, not pattern matching
+- The model running this skill (Opus) is the one that diagnoses; collectors never diagnose
 
 ## Phase 4: Write diagnosis
 

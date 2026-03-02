@@ -26,29 +26,47 @@ Scope: ONLY inter-service alignment. Not code quality, not bugs.
    - Use `git -C ../[repo] show session/{name}:[file]` to read files from the
      session branch without checking it out
 
-## Checks (parallel Explore subagents via Task, Haiku)
+## Phase 1 — Gather (Haiku data extractors)
 
-Only run checks for services that exist in the workspace.
-Spawn lightweight Explore subagents (Task tool, model: haiku) in parallel.
-Use `background: true` so the orchestrator can continue interacting while scans run.
+Only run extractors for services that exist in the workspace.
+Spawn parallel Explore subagents (Task tool, model: haiku) using `background: true`.
+Each extractor returns RAW DATA ONLY — no judgment, no ✅/❌, no comparisons.
 
-### API ↔ Frontend contract
-Compare API Resource response shapes with TypeScript interfaces.
-Report ONLY mismatches: field names, types, missing fields, route names.
+Include this instruction in every extractor prompt: "Return RAW DATA ONLY. Do NOT judge, compare, or produce conclusions. No ✅/❌. Just structured lists of what you found." Format: structured markdown with clear headings and tables.
 
-### Environment variables
-Cross-check env vars between all repos. Grep for env access patterns.
-Compare with .env.example files. Report: used but not declared, declared but never used.
+### API extractor
+Extract all API endpoint response shapes from backend code.
+Return: route, method, response fields and types. One row per field.
 
-### Gateway ↔ API (if gateway exists)
-Compare gateway config routes with actual API routes.
-Report: dead gateway routes, missing routes for new endpoints.
+### Frontend extractor
+Extract all TypeScript interfaces/types that represent API responses.
+Return: interface name, fields and types, which endpoint they map to (if determinable).
 
-### Data layer (if data service exists)
-Compare data schemas with application code. Report: column/type mismatches, missing schema updates.
+### Env extractor
+Extract env var declarations (.env.example) and usages (grep for process.env / import.meta.env / getenv / os.Getenv / etc.) from ALL repos.
+Return: declared vars per repo (from .env.example), used vars per repo (from code grep).
 
-### Auth (if auth service was changed)
-Compare auth config (client IDs, redirect URIs, scopes) between services. Report inconsistencies.
+### Gateway extractor (if gateway exists)
+Extract all gateway route configs.
+Return: path, upstream, method for each route.
+
+### Data extractor (if data service exists)
+Extract schema definitions (table name, columns, types) and application model definitions.
+Return: raw schema table and raw model fields side by side.
+
+### Auth extractor (if auth service was changed)
+Extract auth configs (client IDs, redirect URIs, scopes) from each service.
+Return: raw config values per service.
+
+## Phase 2 — Reason (this skill, running as Opus)
+
+After all extractors return, YOU compare the datasets side-by-side and produce final judgments:
+
+- **API shapes vs Frontend interfaces**: field mismatches, type mismatches, missing fields
+- **Env declarations vs env usages**: used-but-undeclared, declared-but-unused (per repo)
+- **Gateway routes vs API routes**: dead routes, missing routes for new endpoints
+- **Data schemas vs application models**: column/type drift
+- **Auth configs across services**: inconsistencies between client configs
 
 ## Output
 

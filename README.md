@@ -215,7 +215,7 @@ parallel in each repo via Agent Teams.
 | **Orchestrator** | Opus 4.6 | Clarifies, plans, delegates, verifies. Writes in orchestrator/ only. |
 | **Init** | Sonnet 4.6 | Diagnostic + interactive workspace configuration. Run once. |
 | **Teammates** | Sonnet 4.6 | Implement in an isolated worktree, test, commit. |
-| **Explorers** | Haiku | Read-only. Scan, verify consistency. |
+| **Data extractors** | Haiku | Read-only. Collect raw data (types, configs, logs). Never judge or conclude. |
 | **QA** | Sonnet 4.6 | Hostile mode. Min 3 problems found per service. |
 | **E2E Validator** | Sonnet 4.6 | Containers + Chrome browser testing (beta). |
 
@@ -265,7 +265,7 @@ Protection layers:
 | **incident-debug** | Multi-layer diagnostic | "Bug", "500", "not working" |
 | **plan-review** | Plan sanity check (Haiku) | "Review plan" |
 | **merge-prep** | Conflicts, PRs, merge order | "Merge", "PR" |
-| **cycle-retrospective** | Post-cycle learning (Haiku) | "Retro", "retrospective" |
+| **cycle-retrospective** | Post-cycle learning (Opus + Haiku gatherers) | "Retro", "retrospective" |
 | **refresh-profiles** | Re-scan repo CLAUDE.md files (Haiku) | "Refresh profiles" |
 | **bootstrap-repo** | Generate a CLAUDE.md (Haiku) | "Bootstrap", "init CLAUDE.md" |
 | **e2e-validator** | E2E validation: containers + Chrome (beta) | `claude --agent e2e-validator` |
@@ -515,6 +515,17 @@ With `--chrome`, the agent:
 - **Docker** (docker compose v2)
 - **Chrome** with chrome-devtools MCP server (for `--chrome` mode)
 - Completed plan (all tasks ✅) with session branches
+
+---
+
+## Changelog v4.6.2 -> v4.7.0
+
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | **Gather → Reason pattern** | `cross-service-check`, `incident-debug`, and `cycle-retrospective` now use a two-phase approach: Haiku subagents extract raw data (types, configs, logs, code snippets), then Opus performs all reasoning, comparison, and judgment. Previously Haiku did both, producing shallow analysis. |
+| 2 | **cycle-retrospective upgraded to Opus** | Was `model: haiku` (entire skill ran on Haiku). Now inherits session model (Opus). Haiku still gathers data, but pattern analysis and improvement suggestions are Opus-quality. |
+| 3 | **Data extractors replace investigators** | `incident-debug` no longer uses a full Sonnet teammate for API investigation. All layers use Haiku data collectors, and Opus correlates the evidence — better reasoning at lower cost. |
+| 4 | **Model routing docs updated** | `rules/model-routing.md` now documents the Gather → Reason pattern and when to apply it. |
 
 ---
 

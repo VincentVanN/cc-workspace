@@ -8,9 +8,6 @@ description: >
   "capitalize", "lessons learned", "what did we learn", "improve docs".
 argument-hint: "[feature-name]"
 context: fork
-agent: general-purpose
-disable-model-invocation: true
-model: haiku
 allowed-tools: Read, Write, Glob, Grep, Task
 ---
 
@@ -28,25 +25,29 @@ and propagate improvements to project documentation.
    - Cross-service check results
    - Session log (blockers, escalations, re-dispatches)
 
-## Phase 2: Analyze patterns
+## Phase 2: Extract data (Haiku collectors)
 
-Spawn parallel Explore subagents (Task, Haiku) to categorize findings:
+Spawn parallel Explore subagents (Task, model: haiku) to extract and structure raw data from the plan. Each collector: "Extract and structure the data. Do NOT analyze patterns or suggest improvements."
 
-### Recurring QA findings
-- Group QA findings by category (🔴 bugs, 🟡 smells, 🟠 dead code, 🔵 missing tests, 🟣 UX violations)
-- Identify patterns: same type of issue across multiple cycles?
-- Flag findings that could have been prevented by a rule or convention
+### QA data extractor
+Parse the QA report section from the plan.
+Return: raw list of findings with category (🔴/🟡/🟠/🔵/🟣), file reference, and description. No analysis.
 
-### Teammate friction
-- Parse session log for escalations — what decisions weren't covered by the plan?
-- Parse for re-dispatches — what went wrong on first attempt?
-- Parse for idle time — were tasks too large or poorly scoped?
+### Session log extractor
+Parse the session log section from the plan.
+Return: raw list of escalations, re-dispatches, and blockers with timestamps or phase references. No analysis.
 
-### Cross-service gaps
-- Were there contract mismatches? Missing env vars? Schema drift?
-- Could these have been caught earlier by a convention?
+### Cross-service data extractor
+Parse the cross-service check results section from the plan.
+Return: raw list of checks with status and details. No analysis.
 
-## Phase 3: Generate improvements
+## Phase 3: Analyze patterns (Opus reasoning)
+
+After all collectors return, YOU (the skill) analyze the raw data. This is where the reasoning model (Opus) works:
+- Group findings by category and identify recurring patterns across cycles
+- Correlate escalations with plan quality — what was missing from the plan?
+- Identify what could have been prevented by a rule or convention
+- Generate concrete improvement suggestions for each finding category
 
 For each finding category, generate concrete improvement suggestions:
 
